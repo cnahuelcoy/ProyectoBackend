@@ -9,7 +9,7 @@ class ReparacionService:
         self._repository = repository
 
     def crear_reparacion(self, dto: ReparacionCreate) -> Reparacion:
-        # Transformamos el DTO de entrada en una entidad del Dominio
+        # Transform the input DTO into a domain entity
         reparacion = Reparacion(
             orden_trabajo_id=dto.orden_trabajo_id,
             descripcion=dto.descripcion,

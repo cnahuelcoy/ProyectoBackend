@@ -5,7 +5,7 @@ from proyectobackend.services.reparacion_service import ReparacionService
 
 router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
 
-# Instancia compartida en memoria para mantener el estado
+# Shared in-memory instance to preserve state
 _repository = ReparacionRepository()
 _service = ReparacionService(_repository)
 
