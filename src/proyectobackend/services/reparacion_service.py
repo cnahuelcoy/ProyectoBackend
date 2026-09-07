@@ -1,14 +1,29 @@
+from fastapi import HTTPException, status
 from proyectobackend.domain.reparacion import Reparacion
 from proyectobackend.repositories.reparacion_repository import ReparacionRepository
+from proyectobackend.repositories.orden_trabajo_repository import OrdenTrabajoRepository
 from proyectobackend.schemas.reparacion import ReparacionCreate
 
 
 class ReparacionService:
 
-    def __init__(self, repository: ReparacionRepository) -> None:
+    def __init__(
+        self,
+        repository: ReparacionRepository,
+        orden_repository: OrdenTrabajoRepository,
+    ) -> None:
         self._repository = repository
+        self._orden_repository = orden_repository
 
     def crear_reparacion(self, dto: ReparacionCreate) -> Reparacion:
+        # Check if the related work order exists in memory
+        orden = self._orden_repository.buscar_por_id(dto.orden_trabajo_id)
+        if not orden:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Work order {dto.orden_trabajo_id} not found",
+            )
+
         # Transform the input DTO into a domain entity
         reparacion = Reparacion(
             orden_trabajo_id=dto.orden_trabajo_id,
