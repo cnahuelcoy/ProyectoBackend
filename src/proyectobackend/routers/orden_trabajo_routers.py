@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, status
 
-from proyectobackend.repositories.orden_trabajor_repositorio import (
+from proyectobackend.repositories.orden_trabajo_repositorio import (
     OrdenTrabajoRepository,
 )
-from proyectobackend.schemas.orden_trabajo_shemas import (
+from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoCreate,
     OrdenTrabajoResponse,
     OrdenTrabajoUpdate,
 )
-from proyectobackend.services.ordendetrabajodeservices import OrdenTrabajoService
+from proyectobackend.services.orden_trabajo_services import OrdenTrabajoService
 
 
 router = APIRouter(prefix="/ordenes-trabajo", tags=["ordenes-trabajo"])
