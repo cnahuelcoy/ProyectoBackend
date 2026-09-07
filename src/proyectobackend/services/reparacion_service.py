@@ -1,41 +1,69 @@
-from fastapi import HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from proyectobackend.domain.reparacion import Reparacion
-from proyectobackend.repositories.reparacion_repository import ReparacionRepository
-from proyectobackend.repositories.orden_trabajo_repository import OrdenTrabajoRepository
-from proyectobackend.schemas.reparacion import ReparacionCreate
+from proyectobackend.schemas.reparacion import ReparacionCreate, ReparacionUpdate
+from proyectobackend.services.reparacion_service import ReparacionService
+from proyectobackend.repositories.reparacion_repository import (
+    reparacion_repository_instance,
+)
+from proyectobackend.repositories.orden_trabajo_repository import (
+    orden_trabajo_repository_instance,
+)
+
+router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
 
 
-class ReparacionService:
+def get_reparacion_service() -> ReparacionService:
+    return ReparacionService(
+        repository=reparacion_repository_instance,
+        orden_repository=orden_trabajo_repository_instance,
+    )
 
-    def __init__(
-        self,
-        repository: ReparacionRepository,
-        orden_repository: OrdenTrabajoRepository,
-    ) -> None:
-        self._repository = repository
-        self._orden_repository = orden_repository
 
-    def crear_reparacion(self, dto: ReparacionCreate) -> Reparacion:
-        # Check if the related work order exists in memory
-        orden = self._orden_repository.buscar_por_id(dto.orden_trabajo_id)
-        if not orden:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Work order {dto.orden_trabajo_id} not found",
-            )
+@router.post("/", response_model=Reparacion, status_code=status.HTTP_201_CREATED)
+def crear_reparacion(
+    dto: ReparacionCreate,
+    service: ReparacionService = Depends(get_reparacion_service),
+) -> Reparacion:
+    return service.crear_reparacion(dto)
 
-        # Transform the input DTO into a domain entity
-        reparacion = Reparacion(
-            orden_trabajo_id=dto.orden_trabajo_id,
-            descripcion=dto.descripcion,
-            tipo=dto.tipo,
-            costo=dto.costo,
-            fecha=dto.fecha,
+
+@router.get("/", response_model=list[Reparacion], status_code=status.HTTP_200_OK)
+def listar_reparaciones(
+    service: ReparacionService = Depends(get_reparacion_service),
+) -> list[Reparacion]:
+    return service.listar_reparaciones()
+
+
+@router.get(
+    "/{reparacion_id}", response_model=Reparacion, status_code=status.HTTP_200_OK
+)
+def obtener_reparacion(
+    reparacion_id: int,
+    service: ReparacionService = Depends(get_reparacion_service),
+) -> Reparacion:
+    reparacion = service.obtener_reparacion_por_id(reparacion_id)
+    if not reparacion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Repair with ID {reparacion_id} not found",
         )
-        return self._repository.crear(reparacion)
+    return reparacion
 
-    def listar_reparaciones(self) -> list[Reparacion]:
-        return self._repository.listar()
 
-    def obtener_reparacion_por_id(self, reparacion_id: int) -> Reparacion | None:
-        return self._repository.buscar_por_id(reparacion_id)
+@router.patch(
+    "/{reparacion_id}", response_model=Reparacion, status_code=status.HTTP_200_OK
+)
+def actualizar_reparacion(
+    reparacion_id: int,
+    dto: ReparacionUpdate,
+    service: ReparacionService = Depends(get_reparacion_service),
+) -> Reparacion:
+    return service.actualizar_reparacion(reparacion_id, dto)
+
+
+@router.delete("/{reparacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_reparacion(
+    reparacion_id: int,
+    service: ReparacionService = Depends(get_reparacion_service),
+) -> None:
+    service.eliminar_reparacion(reparacion_id)

@@ -1,4 +1,6 @@
 from datetime import date
+from typing import Optional
+
 from pydantic import BaseModel, Field
 from proyectobackend.domain.reparacion import TipoReparacion
 
@@ -31,3 +33,9 @@ class ReparacionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ReparacionUpdate(BaseModel):
+    descripcion: Optional[str] = Field(None, min_length=5)
+    tipo: Optional[TipoReparacion] = None
+    costo: Optional[float] = Field(None, ge=0)
+    fecha: Optional[date] = None
