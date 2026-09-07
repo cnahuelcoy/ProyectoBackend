@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
-from proyectobackend.repositories.orden_trabajo_repositorio import (
-    OrdenTrabajoRepository,
-)
+from proyectobackend.repositories.orden_trabajo_repository import OrdenTrabajoRepository
 from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoCreate,
     OrdenTrabajoResponse,

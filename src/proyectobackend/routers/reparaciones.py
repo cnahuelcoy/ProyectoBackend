@@ -5,8 +5,8 @@ from proyectobackend.services.reparacion_service import ReparacionService
 from proyectobackend.repositories.reparacion_repository import (
     reparacion_repository_instance,
 )
-from proyectobackend.repositories.orden_trabajo_repository import (
-    orden_trabajo_repository_instance,
+from proyectobackend.routers.orden_trabajo_routers import (
+    repository as orden_trabajo_repository_instance,
 )
 
 router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
