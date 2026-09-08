@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from proyectobackend.domain.reparacion import Reparacion
-from proyectobackend.schemas.reparacion import ReparacionCreate
+from proyectobackend.schemas.reparacion import (
+    ReparacionCreate,
+    ReparacionResponse,
+    ReparacionUpdate,
+)
 from proyectobackend.services.reparacion_service import ReparacionService
 from proyectobackend.repositories.reparacion_repository import (
     reparacion_repository_instance,
@@ -19,29 +23,29 @@ def get_reparacion_service() -> ReparacionService:
     )
 
 
-@router.post("/", response_model=Reparacion, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=ReparacionResponse, status_code=status.HTTP_201_CREATED)
 def crear_reparacion(
     dto: ReparacionCreate,
     service: ReparacionService = Depends(get_reparacion_service),
-) -> Reparacion:
+) -> ReparacionResponse:
     # Service validates that orden_trabajo_id exists before creating
     return service.crear_reparacion(dto)
 
 
-@router.get("/", response_model=list[Reparacion], status_code=status.HTTP_200_OK)
+@router.get("/", response_model=list[ReparacionResponse], status_code=status.HTTP_200_OK)
 def listar_reparaciones(
     service: ReparacionService = Depends(get_reparacion_service),
-) -> list[Reparacion]:
+) -> list[ReparacionResponse]:
     return service.listar_reparaciones()
 
 
 @router.get(
-    "/{reparacion_id}", response_model=Reparacion, status_code=status.HTTP_200_OK
+    "/{reparacion_id}",response_model=ReparacionResponse, status_code=status.HTTP_200_OK
 )
 def obtener_reparacion(
     reparacion_id: int,
     service: ReparacionService = Depends(get_reparacion_service),
-) -> Reparacion:
+) -> ReparacionResponse:
     reparacion = service.obtener_reparacion_por_id(reparacion_id)
     if not reparacion:
         raise HTTPException(
