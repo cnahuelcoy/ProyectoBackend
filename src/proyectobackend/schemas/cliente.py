@@ -28,3 +28,11 @@ class ClienteResponse(ClienteBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+
+class ClienteListadoResponse(BaseModel):
+    items: list[ClienteResponse]
+    total: int
+    pagina: int
+    limite: int
+    total_paginas: int
