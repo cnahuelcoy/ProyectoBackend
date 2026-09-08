@@ -8,6 +8,11 @@ class ClienteService:
         self._repository = repository
 
     def crear(self, datos: ClienteCreate) -> Cliente:
+        cliente_existente = self._repository.buscar_por_email(datos.email)
+
+        if cliente_existente is not None:
+            raise ValueError("Ya existe un cliente registrado con este correo")
+
         cliente = Cliente(
             id=0,
             nombre=datos.nombre,
@@ -39,6 +44,19 @@ class ClienteService:
             exclude_unset=True,
             exclude_none=True,
         )
+
+        email_nuevo = cambios.get("email")
+
+        if email_nuevo is not None:
+            cliente_con_email = self._repository.buscar_por_email(email_nuevo)
+
+            if (
+                cliente_con_email is not None
+                and cliente_con_email.id != cliente_id
+            ):
+                raise ValueError(
+                    "Ya existe un cliente registrado con este correo"
+                )
 
         for campo, valor in cambios.items():
             setattr(cliente, campo, valor)

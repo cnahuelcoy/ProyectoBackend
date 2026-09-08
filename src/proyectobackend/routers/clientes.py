@@ -25,7 +25,13 @@ service = ClienteService(repository)
     summary="Crear un cliente",
 )
 def crear_cliente(datos: ClienteCreate):
-    return service.crear(datos)
+    try:
+        return service.crear(datos)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
 
 
 @router.get(
@@ -66,7 +72,13 @@ def actualizar_cliente(
     cliente_id: int,
     datos: ClienteUpdate,
 ):
-    cliente = service.actualizar(cliente_id, datos)
+    try:
+        cliente = service.actualizar(cliente_id, datos)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
 
     if cliente is None:
         raise HTTPException(

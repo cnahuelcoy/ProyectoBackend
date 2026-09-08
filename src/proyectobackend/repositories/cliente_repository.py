@@ -23,6 +23,13 @@ class ClienteRepository:
 
         return None
 
+    def buscar_por_email(self, email: str) -> Cliente | None:
+        for cliente in self._clientes:
+            if cliente.email.lower() == email:
+                return cliente
+
+        return None
+
     def actualizar(self, cliente: Cliente) -> Cliente | None:
         for indice, cliente_existente in enumerate(self._clientes):
             if cliente_existente.id == cliente.id:
