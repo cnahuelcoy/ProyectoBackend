@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Query, Response, status
 
 from proyectobackend.repositories.cliente_repository import ClienteRepository
 from proyectobackend.schemas.cliente import (
     ClienteCreate,
+    ClienteListadoResponse,
     ClienteResponse,
     ClienteUpdate,
 )
@@ -36,12 +39,37 @@ def crear_cliente(datos: ClienteCreate):
 
 @router.get(
     "",
-    response_model=list[ClienteResponse],
+    response_model=ClienteListadoResponse,
     status_code=status.HTTP_200_OK,
     summary="Listar clientes",
+    description=(
+        "Lista clientes permitiendo filtrado por nombre, "
+        "ordenamiento y paginación."
+    ),
 )
-def listar_clientes():
-    return service.listar()
+def listar_clientes(
+    nombre: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=50,
+    ),
+    ordenar_por: Literal[
+        "id",
+        "nombre",
+        "apellido",
+        "email",
+    ] = Query(default="id"),
+    direccion: Literal["asc", "desc"] = Query(default="asc"),
+    pagina: int = Query(default=1, ge=1),
+    limite: int = Query(default=10, ge=1, le=100),
+):
+    return service.listar(
+        nombre=nombre,
+        ordenar_por=ordenar_por,
+        direccion=direccion,
+        pagina=pagina,
+        limite=limite,
+    )
 
 
 @router.get(

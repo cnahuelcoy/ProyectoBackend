@@ -1,3 +1,5 @@
+import math
+
 from proyectobackend.domain.cliente import Cliente
 from proyectobackend.repositories.cliente_repository import ClienteRepository
 from proyectobackend.schemas.cliente import ClienteCreate, ClienteUpdate
@@ -24,8 +26,51 @@ class ClienteService:
 
         return self._repository.crear(cliente)
 
-    def listar(self) -> list[Cliente]:
-        return self._repository.listar()
+    def listar(
+        self,
+        nombre: str | None = None,
+        ordenar_por: str = "id",
+        direccion: str = "asc",
+        pagina: int = 1,
+        limite: int = 10,
+    ) -> dict:
+        clientes = self._repository.listar()
+
+        # 1. FILTRAR
+        if nombre is not None:
+            clientes = [
+                cliente
+                for cliente in clientes
+                if cliente.nombre.lower() == nombre.lower()
+            ]
+
+        # 2. ORDENAR
+        descendente = direccion == "desc"
+
+        clientes = sorted(
+            clientes,
+            key=lambda cliente: getattr(cliente, ordenar_por),
+            reverse=descendente,
+        )
+
+        # Total después de filtrar, pero antes de paginar
+        total = len(clientes)
+
+        # 3. PAGINAR
+        inicio = (pagina - 1) * limite
+        fin = inicio + limite
+
+        items = clientes[inicio:fin]
+
+        total_paginas = math.ceil(total / limite) if total > 0 else 0
+
+        return {
+            "items": items,
+            "total": total,
+            "pagina": pagina,
+            "limite": limite,
+            "total_paginas": total_paginas,
+        }
 
     def obtener_por_id(self, cliente_id: int) -> Cliente | None:
         return self._repository.buscar_por_id(cliente_id)
