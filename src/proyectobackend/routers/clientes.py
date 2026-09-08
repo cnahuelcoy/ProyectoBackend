@@ -1,6 +1,7 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Query, Response, status
+from fastapi.responses import JSONResponse
 
 from proyectobackend.repositories.cliente_repository import ClienteRepository
 from proyectobackend.schemas.cliente import (
@@ -9,6 +10,7 @@ from proyectobackend.schemas.cliente import (
     ClienteResponse,
     ClienteUpdate,
 )
+from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 from proyectobackend.services.cliente_service import ClienteService
 
 
@@ -21,20 +23,42 @@ repository = ClienteRepository()
 service = ClienteService(repository)
 
 
+def crear_error(
+    status_code: int,
+    code: str,
+    message: str,
+) -> JSONResponse:
+    error = ErrorResponse(
+        error=ErrorDetail(
+            code=code,
+            message=message,
+        )
+    )
+
+    return JSONResponse(
+        status_code=status_code,
+        content=error.model_dump(),
+    )
+
+
 @router.post(
     "",
     response_model=ClienteResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Crear un cliente",
+    responses={
+        409: {"model": ErrorResponse},
+    },
 )
 def crear_cliente(datos: ClienteCreate):
     try:
         return service.crear(datos)
     except ValueError as error:
-        raise HTTPException(
+        return crear_error(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
+            code="CLIENT_EMAIL_ALREADY_EXISTS",
+            message=str(error),
+        )
 
 
 @router.get(
@@ -77,14 +101,18 @@ def listar_clientes(
     response_model=ClienteResponse,
     status_code=status.HTTP_200_OK,
     summary="Obtener un cliente por ID",
+    responses={
+        404: {"model": ErrorResponse},
+    },
 )
 def obtener_cliente(cliente_id: int):
     cliente = service.obtener_por_id(cliente_id)
 
     if cliente is None:
-        raise HTTPException(
+        return crear_error(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente no encontrado",
+            code="CLIENT_NOT_FOUND",
+            message="Cliente no encontrado",
         )
 
     return cliente
@@ -95,6 +123,10 @@ def obtener_cliente(cliente_id: int):
     response_model=ClienteResponse,
     status_code=status.HTTP_200_OK,
     summary="Actualizar parcialmente un cliente",
+    responses={
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+    },
 )
 def actualizar_cliente(
     cliente_id: int,
@@ -103,15 +135,17 @@ def actualizar_cliente(
     try:
         cliente = service.actualizar(cliente_id, datos)
     except ValueError as error:
-        raise HTTPException(
+        return crear_error(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
+            code="CLIENT_EMAIL_ALREADY_EXISTS",
+            message=str(error),
+        )
 
     if cliente is None:
-        raise HTTPException(
+        return crear_error(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente no encontrado",
+            code="CLIENT_NOT_FOUND",
+            message="Cliente no encontrado",
         )
 
     return cliente
@@ -121,14 +155,18 @@ def actualizar_cliente(
     "/{cliente_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar un cliente",
+    responses={
+        404: {"model": ErrorResponse},
+    },
 )
 def eliminar_cliente(cliente_id: int):
     eliminado = service.eliminar(cliente_id)
 
     if not eliminado:
-        raise HTTPException(
+        return crear_error(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Cliente no encontrado",
+            code="CLIENT_NOT_FOUND",
+            message="Cliente no encontrado",
         )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
