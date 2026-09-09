@@ -23,15 +23,16 @@ class VehiculoRepository:
             if vehiculo.patente == patente:
                 return vehiculo
         return None
-    
+
     def actualizar(self, vehiculo: Vehiculo) -> Vehiculo:
-        # Sobreescribe el vehículo existente en el diccionario con los datos nuevos
         self._vehiculos[vehiculo.id] = vehiculo
         return vehiculo
 
     def eliminar(self, vehiculo_id: int) -> bool:
-        # Revisa si existe y lo elimina de la memoria
         if vehiculo_id in self._vehiculos:
             del self._vehiculos[vehiculo_id]
             return True
         return False
+
+# INSTANCIA COMPARTIDA UNICA REQUERIDA POR ARQUITECTURA
+vehiculo_repository_instance = VehiculoRepository()
