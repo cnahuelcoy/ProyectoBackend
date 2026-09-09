@@ -25,7 +25,17 @@ class ReparacionService:
                 f"WORK_ORDER_NOT_FOUND:No se encontró la orden de trabajo con ID {dto.orden_trabajo_id}"
             )
 
-        return self._repository.crear(dto)
+        # Mapeo de DTO (Schema) a Entidad de Dominio
+        reparacion = Reparacion(
+            id=0,
+            orden_trabajo_id=dto.orden_trabajo_id,
+            descripcion=dto.descripcion,
+            tipo=dto.tipo,
+            costo=dto.costo,
+            fecha=dto.fecha,
+        )
+
+        return self._repository.crear(reparacion)
 
     def listar_reparaciones(self) -> list[Reparacion]:
         return self._repository.listar()

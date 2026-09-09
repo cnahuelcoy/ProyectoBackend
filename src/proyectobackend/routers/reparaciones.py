@@ -16,6 +16,11 @@ from proyectobackend.services.reparacion_service import ReparacionService
 
 router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
 
+RESPUESTAS_ERROR = {
+    400: {"description": "Datos de entrada inválidos o regla de negocio violada"},
+    404: {"description": "Recurso no encontrado en el sistema"},
+}
+
 
 def get_reparacion_service() -> ReparacionService:
     return ReparacionService(
@@ -39,7 +44,10 @@ def error_json_response(code: str, message: str, status_code: int) -> JSONRespon
 
 
 @router.post(
-    "/", response_model=ReparacionResponse, status_code=status.HTTP_201_CREATED
+    "/",
+    response_model=ReparacionResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=RESPUESTAS_ERROR,
 )
 def crear_reparacion(
     dto: ReparacionCreate,
@@ -66,6 +74,7 @@ def listar_reparaciones(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
+    responses={404: RESPUESTAS_ERROR[404]},
 )
 def obtener_reparacion(
     reparacion_id: int,
@@ -82,6 +91,7 @@ def obtener_reparacion(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
+    responses=RESPUESTAS_ERROR,
 )
 def actualizar_reparacion(
     reparacion_id: int,
@@ -98,7 +108,11 @@ def actualizar_reparacion(
         return error_json_response(code, msg, status.HTTP_400_BAD_REQUEST)
 
 
-@router.delete("/{reparacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{reparacion_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: RESPUESTAS_ERROR[404]},
+)
 def eliminar_reparacion(
     reparacion_id: int,
     service: ReparacionService = Depends(get_reparacion_service),

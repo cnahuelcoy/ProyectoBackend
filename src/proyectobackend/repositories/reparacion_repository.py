@@ -1,5 +1,4 @@
 from proyectobackend.domain.reparacion import Reparacion
-from proyectobackend.schemas.reparacion import ReparacionCreate
 
 
 class ReparacionRepository:
@@ -8,15 +7,8 @@ class ReparacionRepository:
         self._storage: dict[int, Reparacion] = {}
         self._next_id: int = 1
 
-    def crear(self, dto: ReparacionCreate) -> Reparacion:
-        reparacion = Reparacion(
-            id=self._next_id,
-            orden_trabajo_id=dto.orden_trabajo_id,
-            descripcion=dto.descripcion,
-            tipo=dto.tipo,
-            costo=dto.costo,
-            fecha=dto.fecha,
-        )
+    def crear(self, reparacion: Reparacion) -> Reparacion:
+        reparacion.id = self._next_id
         self._storage[self._next_id] = reparacion
         self._next_id += 1
         return reparacion
