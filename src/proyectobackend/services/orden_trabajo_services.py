@@ -1,5 +1,5 @@
 from proyectobackend.domain.orden_trabajo import EstadoOrdenTrabajo, OrdenTrabajo
-from proyectobackend.repositories.orden_trabajo_repository import OrdenTrabajoRepository
+from proyectobackend.repositories.orden_trabajo_repositorio import OrdenTrabajoRepository
 from proyectobackend.schemas.orden_trabajo_schemas import OrdenTrabajoCreate, OrdenTrabajoUpdate
 
 
