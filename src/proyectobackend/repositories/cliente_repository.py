@@ -25,7 +25,7 @@ class ClienteRepository:
 
     def buscar_por_email(self, email: str) -> Cliente | None:
         for cliente in self._clientes:
-            if cliente.email.lower() == email:
+            if cliente.email.lower() == email.lower():
                 return cliente
 
         return None
