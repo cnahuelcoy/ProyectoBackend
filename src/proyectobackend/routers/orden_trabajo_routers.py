@@ -1,16 +1,15 @@
-from typing import Literal
+from typing import Callable, Coroutine, Any, Literal
 
 from proyectobackend.domain.orden_trabajo import EstadoOrdenTrabajo
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Query, Request, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from fastapi.exceptions import RequestValidationError
-from fastapi.encoders import jsonable_encoder
+
 from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 
-from proyectobackend.repositories.orden_trabajo_repositorio import (
-    orden_trabajo_repository_instance,
-)
+from proyectobackend.repositories.orden_trabajo_repositorio import orden_trabajo_repository_instance
 from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoCreate,
     OrdenTrabajoListadoResponse,
@@ -18,50 +17,61 @@ from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoUpdate,
 )
 from proyectobackend.services.orden_trabajo_services import OrdenTrabajoService
-from proyectobackend.repositories.vehiculo_repository import vehiculo_repository_instance
+from proyectobackend.repositories.vehiculo_repository import (
+    vehiculo_repository_instance,
+)
 
 
 class OrdenTrabajoRoute(APIRoute):
-    def get_route_handler(self):
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
-        async def manejar_request(request: Request):
+        async def manejar_request(request: Request) -> Response:
             try:
                 return await handler(request)
             except RequestValidationError as error:
-                respuesta = ErrorResponse(error=ErrorDetail(
-                    code="VALIDATION_ERROR",
-                    message="Los datos de la solicitud no son válidos",
-                    details=jsonable_encoder(error.errors()),
-                ))
-                return JSONResponse(status_code=422, content=respuesta.model_dump())
+                respuesta = ErrorResponse(
+                    error=ErrorDetail(
+                        code="VALIDATION_ERROR",
+                        message="Los datos de la solicitud no son válidos",
+                        details=jsonable_encoder(error.errors()),
+                    )
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    content=respuesta.model_dump(),
+                )
 
         return manejar_request
 
 
 router = APIRouter(
-    prefix="/ordenes-trabajo", tags=["ordenes-trabajo"],
+    prefix="/ordenes-trabajo",
+    tags=["ordenes-trabajo"],
     route_class=OrdenTrabajoRoute,
     responses={422: {"model": ErrorResponse}},
 )
 
+repository = orden_trabajo_repository_instance
+service = OrdenTrabajoService(repository, vehiculo_repository_instance)
+
 
 def _respuesta_error(error: Exception, status_code: int) -> JSONResponse:
     code, separador, message = str(error).partition(":")
-    respuesta = ErrorResponse(error=ErrorDetail(
-        code=code if separador else "WORK_ORDER_ERROR",
-        message=message.strip() if separador else str(error),
-    ))
+    respuesta = ErrorResponse(
+        error=ErrorDetail(
+            code=code if separador else "WORK_ORDER_ERROR",
+            message=message.strip() if separador else str(error),
+        )
+    )
     return JSONResponse(status_code=status_code, content=respuesta.model_dump())
-
-repository = orden_trabajo_repository_instance
-service = OrdenTrabajoService(repository, vehiculo_repository_instance)
 
 
 @router.post(
     "",
     response_model=OrdenTrabajoResponse,
     status_code=status.HTTP_201_CREATED,
+    responses={404: {"model": ErrorResponse}},
 )
 def crear_orden_trabajo(datos: OrdenTrabajoCreate):
     try:
@@ -74,6 +84,7 @@ def crear_orden_trabajo(datos: OrdenTrabajoCreate):
     "/{orden_id}",
     response_model=OrdenTrabajoResponse,
     status_code=status.HTTP_200_OK,
+    responses={404: {"model": ErrorResponse}},
 )
 
 def obtener_orden_trabajo(orden_id: int):
@@ -108,6 +119,7 @@ def listar_ordenes_trabajo(
     "/{orden_id}",
     response_model=OrdenTrabajoResponse,
     status_code=status.HTTP_200_OK,
+    responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}},
 )
 def actualizar_orden_trabajo(orden_id: int, datos: OrdenTrabajoUpdate):
     try:

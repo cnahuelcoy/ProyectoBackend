@@ -24,5 +24,15 @@ class VehiculoRepository:
                 return vehiculo
         return None
 
+    def actualizar(self, vehiculo: Vehiculo) -> Vehiculo:
+        self._vehiculos[vehiculo.id] = vehiculo
+        return vehiculo
 
+    def eliminar(self, vehiculo_id: int) -> bool:
+        if vehiculo_id in self._vehiculos:
+            del self._vehiculos[vehiculo_id]
+            return True
+        return False
+
+# INSTANCIA COMPARTIDA UNICA REQUERIDA POR ARQUITECTURA
 vehiculo_repository_instance = VehiculoRepository()

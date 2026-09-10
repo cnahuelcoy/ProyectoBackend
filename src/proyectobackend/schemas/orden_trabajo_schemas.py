@@ -44,4 +44,3 @@ class OrdenTrabajoListadoResponse(BaseModel):
     limite: int
     total_paginas: int
 
-

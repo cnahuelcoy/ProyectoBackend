@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, Response, status
 from fastapi.responses import JSONResponse
 
-from proyectobackend.repositories.cliente_repository import ClienteRepository
+from proyectobackend.repositories.cliente_repository import cliente_repo
 from proyectobackend.schemas.cliente import (
     ClienteCreate,
     ClienteListadoResponse,
@@ -19,7 +19,7 @@ router = APIRouter(
     tags=["Clientes"],
 )
 
-repository = ClienteRepository()
+repository = cliente_repo
 service = ClienteService(repository)
 
 

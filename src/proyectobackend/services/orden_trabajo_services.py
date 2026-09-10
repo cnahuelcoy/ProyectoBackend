@@ -95,7 +95,9 @@ class OrdenTrabajoService:
         cambios = datos.model_dump(exclude_unset=True, exclude_none=True)
 
         if "vehiculo_id" in cambios:
-            vehiculo = self.vehiculo_repository.buscar_por_id(cambios["vehiculo_id"])
+            vehiculo = self.vehiculo_repository.buscar_por_id(
+                cambios["vehiculo_id"]
+            )
             if vehiculo is None:
                 raise LookupError(
                     f"VEHICLE_NOT_FOUND:No se encontró el vehículo con ID {cambios['vehiculo_id']}"
