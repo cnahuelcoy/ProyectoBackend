@@ -11,7 +11,7 @@ class ReparacionService:
         self,
         repository: ReparacionRepository,
         orden_repository: OrdenTrabajoRepository,
-    ):
+    ) -> None:
         self._repository = repository
         self._orden_repository = orden_repository
 

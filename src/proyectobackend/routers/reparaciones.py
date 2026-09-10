@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
+from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 
 from proyectobackend.repositories.orden_trabajo_repositorio import (
     orden_trabajo_repository_instance,
@@ -37,9 +38,10 @@ def parse_error_message(e: Exception) -> tuple[str, str]:
 
 
 def error_json_response(code: str, message: str, status_code: int) -> JSONResponse:
+    respuesta = ErrorResponse(error=ErrorDetail(code=code, message=message))
     return JSONResponse(
         status_code=status_code,
-        content={"error": {"code": code, "message": message, "details": []}},
+        content=respuesta.model_dump(),
     )
 
 

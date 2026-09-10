@@ -45,3 +45,6 @@ class ClienteRepository:
                 return True
 
         return False
+
+
+cliente_repo = ClienteRepository()
