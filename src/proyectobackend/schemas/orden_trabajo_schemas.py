@@ -9,7 +9,7 @@ from proyectobackend.domain.orden_trabajo import EstadoOrdenTrabajo
 class OrdenTrabajoCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    vehiculo_id: int
+    vehiculo_id: int = Field(gt=0)
     fecha_ingreso: date
     descripcion_problema: str = Field(min_length=5)
     estado: EstadoOrdenTrabajo = EstadoOrdenTrabajo.PENDIENTE
@@ -20,7 +20,7 @@ class OrdenTrabajoCreate(BaseModel):
 class OrdenTrabajoUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    vehiculo_id: int | None = None
+    vehiculo_id: int | None = Field(default=None, gt=0)
     fecha_ingreso: date | None = None
     descripcion_problema: str | None = Field(default=None, min_length=5)
     estado: EstadoOrdenTrabajo | None = None
@@ -43,5 +43,4 @@ class OrdenTrabajoListadoResponse(BaseModel):
     pagina: int
     limite: int
     total_paginas: int
-
 

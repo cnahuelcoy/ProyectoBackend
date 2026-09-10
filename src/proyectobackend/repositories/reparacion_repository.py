@@ -18,3 +18,21 @@ class ReparacionRepository:
 
     def buscar_por_id(self, reparacion_id: int) -> Reparacion | None:
         return self._storage.get(reparacion_id)
+
+    def actualizar(self, reparacion_id: int, datos: dict) -> Reparacion | None:
+        reparacion = self.buscar_por_id(reparacion_id)
+        if not reparacion:
+            return None
+        for campo, valor in datos.items():
+            setattr(reparacion, campo, valor)
+        return reparacion
+
+    def eliminar(self, reparacion_id: int) -> bool:
+        if reparacion_id in self._storage:
+            del self._storage[reparacion_id]
+            return True
+        return False
+
+
+# Shared instance for dependency injection
+reparacion_repository_instance = ReparacionRepository()
