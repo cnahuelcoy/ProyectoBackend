@@ -1,10 +1,15 @@
 from typing import Literal
 
 from proyectobackend.domain.orden_trabajo import EstadoOrdenTrabajo
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
+from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 
 from proyectobackend.repositories.orden_trabajo_repositorio import (
-    OrdenTrabajoRepository,
+    orden_trabajo_repository_instance,
 )
 from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoCreate,
@@ -13,13 +18,44 @@ from proyectobackend.schemas.orden_trabajo_schemas import (
     OrdenTrabajoUpdate,
 )
 from proyectobackend.services.orden_trabajo_services import OrdenTrabajoService
-from proyectobackend.routers.vehiculos import vehiculo_repository
+from proyectobackend.repositories.vehiculo_repository import vehiculo_repository_instance
 
 
-router = APIRouter(prefix="/ordenes-trabajo", tags=["ordenes-trabajo"])
+class OrdenTrabajoRoute(APIRoute):
+    def get_route_handler(self):
+        handler = super().get_route_handler()
 
-repository = OrdenTrabajoRepository()
-service = OrdenTrabajoService(repository , vehiculo_repository)
+        async def manejar_request(request: Request):
+            try:
+                return await handler(request)
+            except RequestValidationError as error:
+                respuesta = ErrorResponse(error=ErrorDetail(
+                    code="VALIDATION_ERROR",
+                    message="Los datos de la solicitud no son válidos",
+                    details=jsonable_encoder(error.errors()),
+                ))
+                return JSONResponse(status_code=422, content=respuesta.model_dump())
+
+        return manejar_request
+
+
+router = APIRouter(
+    prefix="/ordenes-trabajo", tags=["ordenes-trabajo"],
+    route_class=OrdenTrabajoRoute,
+    responses={422: {"model": ErrorResponse}},
+)
+
+
+def _respuesta_error(error: Exception, status_code: int) -> JSONResponse:
+    code, separador, message = str(error).partition(":")
+    respuesta = ErrorResponse(error=ErrorDetail(
+        code=code if separador else "WORK_ORDER_ERROR",
+        message=message.strip() if separador else str(error),
+    ))
+    return JSONResponse(status_code=status_code, content=respuesta.model_dump())
+
+repository = orden_trabajo_repository_instance
+service = OrdenTrabajoService(repository, vehiculo_repository_instance)
 
 
 @router.post(
@@ -30,11 +66,8 @@ service = OrdenTrabajoService(repository , vehiculo_repository)
 def crear_orden_trabajo(datos: OrdenTrabajoCreate):
     try:
         return service.crear(datos)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        ) from error
+    except LookupError as error:
+        return _respuesta_error(error, status.HTTP_404_NOT_FOUND)
 
 
 @router.get(
@@ -47,10 +80,7 @@ def obtener_orden_trabajo(orden_id: int):
     try:
         return service.obtener_por_id(orden_id)
     except LookupError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
+        return _respuesta_error(error, status.HTTP_404_NOT_FOUND)
 
 
 @router.get(
@@ -83,12 +113,6 @@ def actualizar_orden_trabajo(orden_id: int, datos: OrdenTrabajoUpdate):
     try:
         return service.actualizar(orden_id, datos)
     except LookupError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
+        return _respuesta_error(error, status.HTTP_404_NOT_FOUND)
     except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        ) from error
+        return _respuesta_error(error, status.HTTP_400_BAD_REQUEST)

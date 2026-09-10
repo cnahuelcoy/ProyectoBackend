@@ -1,11 +1,11 @@
 from fastapi import APIRouter, status
 from typing import List
 from proyectobackend.schemas.vehiculo import VehiculoCreate, VehiculoResponse
-from proyectobackend.repositories.vehiculo_repository import VehiculoRepository
+from proyectobackend.repositories.vehiculo_repository import vehiculo_repository_instance
 from proyectobackend.services.vehiculo_service import VehiculoService
 
 # Instancias globales para mantener los datos en memoria
-vehiculo_repository = VehiculoRepository()
+vehiculo_repository = vehiculo_repository_instance
 vehiculo_service = VehiculoService(vehiculo_repository)
 
 router = APIRouter(

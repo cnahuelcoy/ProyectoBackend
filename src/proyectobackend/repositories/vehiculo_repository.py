@@ -23,3 +23,6 @@ class VehiculoRepository:
             if vehiculo.patente == patente:
                 return vehiculo
         return None
+
+
+vehiculo_repository_instance = VehiculoRepository()

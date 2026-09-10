@@ -23,4 +23,7 @@ class OrdenTrabajoRepository:
             orden_actualizada.id = orden_id
             self.ordenes[orden_id] = orden_actualizada
             return orden_actualizada
-        return None 
+        return None
+
+
+orden_trabajo_repository_instance = OrdenTrabajoRepository()

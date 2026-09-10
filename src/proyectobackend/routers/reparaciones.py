@@ -1,4 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
+from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
+from proyectobackend.repositories.orden_trabajo_repositorio import orden_trabajo_repository_instance
 from proyectobackend.repositories.reparacion_repository import ReparacionRepository
 from proyectobackend.schemas.reparacion import ReparacionCreate, ReparacionResponse
 from proyectobackend.services.reparacion_service import ReparacionService
@@ -7,7 +10,7 @@ router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
 
 # Shared in-memory instance to preserve state
 _repository = ReparacionRepository()
-_service = ReparacionService(_repository)
+_service = ReparacionService(_repository, orden_trabajo_repository_instance)
 
 
 @router.post(
@@ -18,7 +21,13 @@ _service = ReparacionService(_repository)
     description="Crea una nueva reparación asociada a una orden de trabajo.",
 )
 def crear_reparacion(dto: ReparacionCreate):
-    return _service.crear_reparacion(dto)
+    try:
+        return _service.crear_reparacion(dto)
+    except LookupError as error:
+        respuesta = ErrorResponse(error=ErrorDetail(
+            code="WORK_ORDER_NOT_FOUND", message=str(error),
+        ))
+        return JSONResponse(status_code=404, content=respuesta.model_dump())
 
 
 @router.get(
