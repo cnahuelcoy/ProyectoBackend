@@ -17,6 +17,9 @@ from proyectobackend.services.cliente_service import ClienteService
 router = APIRouter(
     prefix="/clientes",
     tags=["Clientes"],
+    responses={
+        422: {"model": ErrorResponse},
+    },
 )
 
 repository = cliente_repo
@@ -169,4 +172,6 @@ def eliminar_cliente(cliente_id: int):
             message="Cliente no encontrado",
         )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
