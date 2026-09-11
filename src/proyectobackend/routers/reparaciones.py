@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
-from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 
 from proyectobackend.repositories.orden_trabajo_repositorio import (
     orden_trabajo_repository_instance,
@@ -8,6 +7,7 @@ from proyectobackend.repositories.orden_trabajo_repositorio import (
 from proyectobackend.repositories.reparacion_repository import (
     reparacion_repository_instance,
 )
+from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 from proyectobackend.schemas.reparacion import (
     ReparacionCreate,
     ReparacionResponse,
@@ -15,11 +15,25 @@ from proyectobackend.schemas.reparacion import (
 )
 from proyectobackend.services.reparacion_service import ReparacionService
 
-router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
+
+router = APIRouter(
+    prefix="/reparaciones",
+    tags=["Reparaciones"],
+    responses={
+        422: {"model": ErrorResponse},
+    },
+)
+
 
 RESPUESTAS_ERROR = {
-    400: {"description": "Datos de entrada inválidos o regla de negocio violada"},
-    404: {"description": "Recurso no encontrado en el sistema"},
+    400: {
+        "model": ErrorResponse,
+        "description": "Regla de negocio violada",
+    },
+    404: {
+        "model": ErrorResponse,
+        "description": "Recurso no encontrado en el sistema",
+    },
 }
 
 
@@ -30,15 +44,27 @@ def get_reparacion_service() -> ReparacionService:
     )
 
 
-def parse_error_message(e: Exception) -> tuple[str, str]:
-    parts = str(e).split(":", 1)
+def parse_error_message(error: Exception) -> tuple[str, str]:
+    parts = str(error).split(":", 1)
+
     if len(parts) == 2:
         return parts[0].strip(), parts[1].strip()
-    return "ERROR", str(e)
+
+    return "REPAIR_ERROR", str(error)
 
 
-def error_json_response(code: str, message: str, status_code: int) -> JSONResponse:
-    respuesta = ErrorResponse(error=ErrorDetail(code=code, message=message))
+def error_json_response(
+    code: str,
+    message: str,
+    status_code: int,
+) -> JSONResponse:
+    respuesta = ErrorResponse(
+        error=ErrorDetail(
+            code=code,
+            message=message,
+        )
+    )
+
     return JSONResponse(
         status_code=status_code,
         content=respuesta.model_dump(),
@@ -57,15 +83,31 @@ def crear_reparacion(
 ):
     try:
         return service.crear_reparacion(dto)
-    except LookupError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_404_NOT_FOUND)
-    except ValueError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_400_BAD_REQUEST)
+
+    except LookupError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    except ValueError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_400_BAD_REQUEST,
+        )
 
 
-@router.get("/", response_model=list[ReparacionResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/",
+    response_model=list[ReparacionResponse],
+    status_code=status.HTTP_200_OK,
+)
 def listar_reparaciones(
     service: ReparacionService = Depends(get_reparacion_service),
 ):
@@ -76,7 +118,12 @@ def listar_reparaciones(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
-    responses={404: RESPUESTAS_ERROR[404]},
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Reparación no encontrada",
+        },
+    },
 )
 def obtener_reparacion(
     reparacion_id: int,
@@ -84,9 +131,15 @@ def obtener_reparacion(
 ):
     try:
         return service.obtener_reparacion_por_id(reparacion_id)
-    except LookupError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_404_NOT_FOUND)
+
+    except LookupError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_404_NOT_FOUND,
+        )
 
 
 @router.patch(
@@ -101,19 +154,39 @@ def actualizar_reparacion(
     service: ReparacionService = Depends(get_reparacion_service),
 ):
     try:
-        return service.actualizar_reparacion(reparacion_id, dto)
-    except LookupError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_404_NOT_FOUND)
-    except ValueError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_400_BAD_REQUEST)
+        return service.actualizar_reparacion(
+            reparacion_id,
+            dto,
+        )
+
+    except LookupError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    except ValueError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_400_BAD_REQUEST,
+        )
 
 
 @router.delete(
     "/{reparacion_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={404: RESPUESTAS_ERROR[404]},
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Reparación no encontrada",
+        },
+    },
 )
 def eliminar_reparacion(
     reparacion_id: int,
@@ -121,7 +194,16 @@ def eliminar_reparacion(
 ):
     try:
         service.eliminar_reparacion(reparacion_id)
-        return Response(status_code=status.HTTP_204_NO_CONTENT)
-    except LookupError as e:
-        code, msg = parse_error_message(e)
-        return error_json_response(code, msg, status.HTTP_404_NOT_FOUND)
+
+        return Response(
+            status_code=status.HTTP_204_NO_CONTENT,
+        )
+
+    except LookupError as error:
+        code, message = parse_error_message(error)
+
+        return error_json_response(
+            code,
+            message,
+            status.HTTP_404_NOT_FOUND,
+        )
