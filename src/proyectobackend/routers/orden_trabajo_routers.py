@@ -122,6 +122,7 @@ def listar_ordenes_trabajo(
     responses={
         400: {"model": ErrorResponse},
         404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
     },
 )
 def actualizar_orden_trabajo(
@@ -139,6 +140,14 @@ def actualizar_orden_trabajo(
             status.HTTP_404_NOT_FOUND,
         )
     except ValueError as error:
+        code = str(error).partition(":")[0]
+
+        if code == "INVALID_WORK_ORDER_STATE":
+            return _respuesta_error(
+                error,
+                status.HTTP_409_CONFLICT,
+            )
+
         return _respuesta_error(
             error,
             status.HTTP_400_BAD_REQUEST,
