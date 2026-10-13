@@ -40,3 +40,16 @@ src/proyectobackend/
 ├── schemas/
 ├── services/
 └── main.py
+```
+
+## Dependencias actuales
+
+El proyecto utiliza actualmente las siguientes dependencias:
+
+- Python >= 3.13
+- FastAPI >= 0.141.1
+- Pydantic >= 2.13.5
+- SQLAlchemy >= 2.1.4
+- Uvicorn >= 0.52.4
+
+La gestión de dependencias y del entorno del proyecto se realiza mediante `uv`.
