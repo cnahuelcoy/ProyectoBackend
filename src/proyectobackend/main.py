@@ -1,8 +1,11 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from proyectobackend.database.init_db import init_db
 from proyectobackend.routers.clientes import router as clientes_router
 from proyectobackend.routers.vehiculos import router as vehiculos_router
 from proyectobackend.routers.reparaciones import router as reparaciones_router
@@ -12,9 +15,16 @@ from proyectobackend.routers.orden_trabajo_routers import (
 from proyectobackend.schemas.error import ErrorDetail, ErrorResponse
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="API Taller Mecánico",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 
