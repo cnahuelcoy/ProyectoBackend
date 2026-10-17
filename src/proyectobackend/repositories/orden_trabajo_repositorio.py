@@ -1,29 +1,87 @@
-from proyectobackend.domain.orden_trabajo import OrdenTrabajo
+from sqlalchemy import select
 
-class OrdenTrabajoRepository:   
-    def __init__(self):
-        self.ordenes: dict[int, OrdenTrabajo] = {}
-        self.siguiente_id: int = 1
+from proyectobackend.database.session import SessionLocal
+from proyectobackend.domain.orden_trabajo import OrdenTrabajo
+from proyectobackend.models.orden_trabajo import OrdenTrabajoModel
+
+
+class OrdenTrabajoRepository:
+    @staticmethod
+    def _to_domain(model: OrdenTrabajoModel) -> OrdenTrabajo:
+        return OrdenTrabajo(
+            id=model.id,
+            vehiculo_id=model.vehiculo_id,
+            fecha_ingreso=model.fecha_ingreso,
+            descripcion_problema=model.descripcion_problema,
+            kilometraje_ingreso=model.kilometraje_ingreso,
+            estado=model.estado,
+        )
 
     def crear(self, orden: OrdenTrabajo) -> OrdenTrabajo:
-        orden.id = self.siguiente_id
-        self.siguiente_id += 1
+        with SessionLocal() as session:
+            model = OrdenTrabajoModel(
+                vehiculo_id=orden.vehiculo_id,
+                fecha_ingreso=orden.fecha_ingreso,
+                descripcion_problema=orden.descripcion_problema,
+                kilometraje_ingreso=orden.kilometraje_ingreso,
+                estado=orden.estado,
+            )
 
-        self.ordenes[orden.id] = orden
-        return orden
+            session.add(model)
+            session.commit()
+            session.refresh(model)
+
+            orden.id = model.id
+            return orden
 
     def listar(self) -> list[OrdenTrabajo]:
-        return list(self.ordenes.values())
+        with SessionLocal() as session:
+            statement = select(OrdenTrabajoModel).order_by(
+                OrdenTrabajoModel.id.asc()
+            )
+
+            modelos = session.scalars(statement).all()
+
+            return [
+                self._to_domain(model)
+                for model in modelos
+            ]
 
     def buscar_por_id(self, orden_id: int) -> OrdenTrabajo | None:
-        return self.ordenes.get(orden_id)
+        with SessionLocal() as session:
+            model = session.get(OrdenTrabajoModel, orden_id)
 
-    def actualizar(self, orden_id: int, orden_actualizada: OrdenTrabajo) -> OrdenTrabajo | None:
-        if orden_id in self.ordenes:
-            orden_actualizada.id = orden_id
-            self.ordenes[orden_id] = orden_actualizada
+            if model is None:
+                return None
+
+            return self._to_domain(model)
+
+    def actualizar(
+        self,
+        orden_id: int,
+        orden_actualizada: OrdenTrabajo,
+    ) -> OrdenTrabajo | None:
+        with SessionLocal() as session:
+            model = session.get(OrdenTrabajoModel, orden_id)
+
+            if model is None:
+                return None
+
+            model.vehiculo_id = orden_actualizada.vehiculo_id
+            model.fecha_ingreso = orden_actualizada.fecha_ingreso
+            model.descripcion_problema = (
+                orden_actualizada.descripcion_problema
+            )
+            model.kilometraje_ingreso = (
+                orden_actualizada.kilometraje_ingreso
+            )
+            model.estado = orden_actualizada.estado
+
+            session.commit()
+            session.refresh(model)
+
+            orden_actualizada.id = model.id
             return orden_actualizada
-        return None
 
 
 orden_trabajo_repository_instance = OrdenTrabajoRepository()
