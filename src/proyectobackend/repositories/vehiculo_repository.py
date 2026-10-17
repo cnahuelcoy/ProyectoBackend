@@ -1,10 +1,28 @@
 from typing import List, Optional
+
+from sqlalchemy import select
+
+from proyectobackend.database.session import SessionLocal
 from proyectobackend.domain.vehiculo import Vehiculo
+from proyectobackend.models.vehiculo import VehiculoModel
+
 
 class VehiculoRepository:
     def __init__(self):
         self._vehiculos: dict[int, Vehiculo] = {}
         self._contador_id: int = 1
+
+    @staticmethod
+    def _to_domain(model: VehiculoModel) -> Vehiculo:
+        return Vehiculo(
+            id=model.id,
+            patente=model.patente,
+            marca=model.marca,
+            modelo=model.modelo,
+            anio=model.anio,
+            kilometraje=model.kilometraje,
+            cliente_id=model.cliente_id,
+        )
 
     def crear(self, vehiculo: Vehiculo) -> Vehiculo:
         vehiculo.id = self._contador_id
@@ -33,6 +51,7 @@ class VehiculoRepository:
             del self._vehiculos[vehiculo_id]
             return True
         return False
+
 
 # INSTANCIA COMPARTIDA UNICA REQUERIDA POR ARQUITECTURA
 vehiculo_repository_instance = VehiculoRepository()
