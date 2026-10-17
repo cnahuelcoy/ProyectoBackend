@@ -25,13 +25,32 @@ class VehiculoRepository:
         )
 
     def crear(self, vehiculo: Vehiculo) -> Vehiculo:
-        vehiculo.id = self._contador_id
-        self._vehiculos[self._contador_id] = vehiculo
-        self._contador_id += 1
-        return vehiculo
+        with SessionLocal() as session:
+            model = VehiculoModel(
+                patente=vehiculo.patente,
+                marca=vehiculo.marca,
+                modelo=vehiculo.modelo,
+                anio=vehiculo.anio,
+                kilometraje=vehiculo.kilometraje,
+                cliente_id=vehiculo.cliente_id,
+            )
 
-    def listar(self) -> List[Vehiculo]:
-        return list(self._vehiculos.values())
+            session.add(model)
+            session.commit()
+            session.refresh(model)
+
+            return self._to_domain(model)
+
+    def listar(self) -> list[Vehiculo]:
+        with SessionLocal() as session:
+            # Keep insertion order, as the previous in-memory dict did
+            statement = select(VehiculoModel).order_by(VehiculoModel.id)
+            modelos = session.scalars(statement).all()
+
+            return [
+                self._to_domain(model)
+                for model in modelos
+            ]
 
     def buscar_por_id(self, vehiculo_id: int) -> Optional[Vehiculo]:
         return self._vehiculos.get(vehiculo_id)
