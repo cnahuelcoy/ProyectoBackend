@@ -52,14 +52,27 @@ class VehiculoRepository:
                 for model in modelos
             ]
 
-    def buscar_por_id(self, vehiculo_id: int) -> Optional[Vehiculo]:
-        return self._vehiculos.get(vehiculo_id)
+    def buscar_por_id(self, vehiculo_id: int) -> Vehiculo | None:
+        with SessionLocal() as session:
+            model = session.get(VehiculoModel, vehiculo_id)
 
-    def buscar_por_patente(self, patente: str) -> Optional[Vehiculo]:
-        for vehiculo in self._vehiculos.values():
-            if vehiculo.patente == patente:
-                return vehiculo
-        return None
+            if model is None:
+                return None
+
+            return self._to_domain(model)
+
+    def buscar_por_patente(self, patente: str) -> Vehiculo | None:
+        with SessionLocal() as session:
+            statement = select(VehiculoModel).where(
+                VehiculoModel.patente == patente
+            )
+
+            model = session.scalar(statement)
+
+            if model is None:
+                return None
+
+            return self._to_domain(model)
 
     def actualizar(self, vehiculo: Vehiculo) -> Vehiculo:
         self._vehiculos[vehiculo.id] = vehiculo
