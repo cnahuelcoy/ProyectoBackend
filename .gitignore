@@ -3,3 +3,4 @@
 *.py[cod]
 # SQLite database
 *.db
+.env
