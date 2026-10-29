@@ -33,7 +33,7 @@ Los módulos se relacionan de la siguiente manera:
 El proyecto está organizado por capas para separar las responsabilidades del sistema.
 
 ```text
-ProyectoBackend/
+backend-2026-grupo-06/
 ├── docs/
 │   ├── migraciones.md
 │   ├── pruebas.md
@@ -127,8 +127,8 @@ El proyecto utiliza Docker Compose para ejecutar dos contenedores: uno para Fast
 Clonar el repositorio:
 
 ```powershell
-git clone https://github.com/cnahuelcoy/ProyectoBackend.git
-cd ProyectoBackend
+git clone https://github.com/cnahuelcoy/backend-2026-grupo-06.git
+cd backend-2026-grupo-06
 ```
 
 Crear el archivo de variables de entorno:
@@ -248,6 +248,16 @@ uv run python -B -m unittest discover -s tests -t . -v
 El resultado esperado es que las nueve pruebas finalicen con `OK`.
 
 Las pruebas utilizan bases SQLite temporales y aisladas, por lo que no modifican los datos de PostgreSQL.
+
+### Ejecutar pruebas con Docker
+
+Con los contenedores funcionando, las pruebas también pueden ejecutarse desde Docker:
+
+```powershell
+docker compose exec backend uv run --no-sync python -B -m unittest discover -s tests -t . -v
+```
+
+Las nueve pruebas deben finalizar con `OK` y utilizan bases SQLite temporales, sin modificar los datos de PostgreSQL.
 
 ## Endpoints de la API
 
