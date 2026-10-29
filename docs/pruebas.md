@@ -43,6 +43,12 @@ Para correr las nueve pruebas:
 .venv/bin/python -B -m unittest discover -s tests -t . -v
 ```
 
+En Windows, usando uv:
+
+```powershell
+uv run python -B -m unittest discover -s tests -t . -v
+```
+
 El 28 de octubre de 2026 la ejecución local terminó con este resultado,
 mostrado en la captura de la terminal:
 
@@ -51,6 +57,9 @@ Ran 9 tests in 12.780s
 
 OK
 ```
+
+Después de fijar `DATABASE_URL`, se repitieron las nueve pruebas en Linux:
+terminaron con `OK` en 12.692 segundos.
 
 Los nueve casos pasaron. La tabla siguiente resume lo comprobado por sus
 aserciones. Los IDs se toman de las respuestas de la API; no se usan IDs fijos

@@ -63,6 +63,7 @@ class ApiDePrueba:
         raiz = Path(__file__).resolve().parents[1]
 
         entorno = os.environ.copy()
+        entorno["DATABASE_URL"] = "sqlite:///./taller_mecanico.db"
         rutas = [str(raiz / "src")]
 
         if entorno.get("PYTHONPATH"):
