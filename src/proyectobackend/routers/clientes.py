@@ -1,3 +1,4 @@
+
 from typing import Literal
 
 from fastapi import APIRouter, Query, Response, status
@@ -160,10 +161,18 @@ def actualizar_cliente(
     summary="Eliminar un cliente",
     responses={
         404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
     },
 )
 def eliminar_cliente(cliente_id: int):
-    eliminado = service.eliminar(cliente_id)
+    try:
+        eliminado = service.eliminar(cliente_id)
+    except ValueError as error:
+        return crear_error(
+            status_code=status.HTTP_409_CONFLICT,
+            code="CLIENT_HAS_VEHICLES",
+            message=str(error),
+        )
 
     if not eliminado:
         return crear_error(

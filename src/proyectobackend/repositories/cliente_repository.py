@@ -1,8 +1,11 @@
+
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from proyectobackend.database.session import SessionLocal
 from proyectobackend.domain.cliente import Cliente
 from proyectobackend.models.cliente import ClienteModel
+from proyectobackend.models.vehiculo import VehiculoModel
 
 
 class ClienteRepository:
@@ -90,8 +93,25 @@ class ClienteRepository:
             if model is None:
                 return False
 
-            session.delete(model)
-            session.commit()
+            vehiculo_asociado = session.scalar(
+                select(VehiculoModel.id)
+                .where(VehiculoModel.cliente_id == cliente_id)
+                .limit(1)
+            )
+
+            if vehiculo_asociado is not None:
+                raise ValueError(
+                    "No se puede eliminar un cliente con vehículos asociados"
+                )
+
+            try:
+                session.delete(model)
+                session.commit()
+            except IntegrityError as error:
+                session.rollback()
+                raise ValueError(
+                    "No se puede eliminar un cliente con vehículos asociados"
+                ) from error
 
             return True
 
