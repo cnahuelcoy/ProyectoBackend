@@ -249,6 +249,16 @@ El resultado esperado es que las nueve pruebas finalicen con `OK`.
 
 Las pruebas utilizan bases SQLite temporales y aisladas, por lo que no modifican los datos de PostgreSQL.
 
+### Ejecutar pruebas con Docker
+
+Con los contenedores funcionando, las pruebas también pueden ejecutarse desde Docker:
+
+```powershell
+docker compose exec backend uv run --no-sync python -B -m unittest discover -s tests -t . -v
+```
+
+Las nueve pruebas deben finalizar con `OK` y utilizan bases SQLite temporales, sin modificar los datos de PostgreSQL.
+
 ## Endpoints de la API
 
 La API implementa operaciones REST sobre los cuatro módulos.
