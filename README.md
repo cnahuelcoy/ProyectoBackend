@@ -33,7 +33,7 @@ Los módulos se relacionan de la siguiente manera:
 El proyecto está organizado por capas para separar las responsabilidades del sistema.
 
 ```text
-ProyectoBackend/
+backend-2026-grupo-06/
 ├── docs/
 │   ├── migraciones.md
 │   ├── pruebas.md
@@ -127,8 +127,8 @@ El proyecto utiliza Docker Compose para ejecutar dos contenedores: uno para Fast
 Clonar el repositorio:
 
 ```powershell
-git clone https://github.com/cnahuelcoy/ProyectoBackend.git
-cd ProyectoBackend
+git clone https://github.com/cnahuelcoy/backend-2026-grupo-06.git
+cd backend-2026-grupo-06
 ```
 
 Crear el archivo de variables de entorno:
