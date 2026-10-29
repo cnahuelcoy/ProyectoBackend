@@ -9,6 +9,7 @@ COPY src ./src
 COPY scripts ./scripts
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY tests ./tests
 
 RUN uv sync --frozen --no-dev
 
