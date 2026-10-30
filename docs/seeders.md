@@ -1,8 +1,70 @@
 # Parte 5 — Seeders y datos iniciales
 
-El archivo `scripts/seed_db.py` inserta **dos clientes, dos vehículos, dos órdenes de trabajo y dos reparaciones** en SQLite, enlazados como `Cliente → Vehículo → Orden de Trabajo → Reparación`. No requiere migraciones nuevas ni modifica reglas de negocio, modelos o endpoints.
+El archivo `scripts/seed_db.py` inserta **dos clientes, dos vehículos, dos órdenes de trabajo y dos reparaciones** en la base configurada (SQLite o PostgreSQL), enlazados como `Cliente → Vehículo → Orden de Trabajo → Reparación`. No crea migraciones nuevas ni modifica reglas de negocio, modelos o endpoints. En PostgreSQL, las migraciones existentes deben aplicarse **antes** de ejecutar este script.
 
-## Preparación y ejecución
+## Verificación segura con PostgreSQL y Docker (base aislada)
+
+**Advertencia:** ejecutar estas comprobaciones únicamente en una **base de pruebas nueva**, nunca en la base compartida ni de producción. El ejemplo usa otro clon, otro proyecto de Docker Compose y otro volumen; no contiene credenciales reales. **Este procedimiento está documentado, pero no supone que se haya ejecutado.**
+
+Requisitos: Git, Docker Desktop + Compose y un clon limpio del repositorio. En PowerShell, desde una carpeta distinta de la copia que utiliza el equipo:
+
+```powershell
+git clone https://github.com/cnahuelcoy/backend-2026-grupo-06.git backend-seeders-audit
+cd backend-seeders-audit
+Copy-Item .env.example .env
+```
+
+Editar el archivo `.env` **solo dentro del clon de pruebas**: establecer `POSTGRES_DB=seeders_audit_db` y una contraseña propia para `POSTGRES_PASSWORD`; conservar o configurar `POSTGRES_USER`. No subir `.env` ni pegar la contraseña en evidencias. La URL `DATABASE_URL` del contenedor backend se construye automáticamente desde las variables de Compose.
+
+Usar siempre el mismo nombre de proyecto **exclusivo** para evitar utilizar contenedores o volúmenes del equipo:
+
+```powershell
+docker compose -p seeders_audit_20261029 build backend
+docker compose -p seeders_audit_20261029 up -d db
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync alembic upgrade head
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync alembic current
+```
+
+Resultado **esperado**, no certificado: Alembic en revisión `0001 (head)`. **No ejecutar `alembic downgrade`, `drop_all` ni eliminar volúmenes de bases compartidas.**
+
+### Medir antes, después de la primera ejecución y después de la segunda
+
+Tomar una captura de las cantidades antes de insertar:
+
+```powershell
+docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT (SELECT count(*) FROM clientes) AS clientes, (SELECT count(*) FROM vehiculos) AS vehiculos, (SELECT count(*) FROM ordenes_trabajo) AS ordenes, (SELECT count(*) FROM reparaciones) AS reparaciones;"'
+```
+
+Ejecutar una vez y repetir la consulta anterior:
+
+```powershell
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py
+```
+
+Ejecutar **exactamente el mismo comando una segunda vez**, repetir de nuevo la consulta de cantidades y comparar los IDs mediante esta consulta (también antes y después de la segunda ejecución):
+
+```powershell
+docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.id AS cliente_id, v.id AS vehiculo_id, o.id AS orden_id, r.id AS reparacion_id, c.email, v.patente FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id WHERE c.email LIKE '\''seed.cliente%@example.com'\'' ORDER BY c.id;"'
+```
+
+En una base realmente vacía y migrada se **espera**, en orden, `0/0/0/0 → 2/2/2/2 → 2/2/2/2`. Los IDs de las dos cadenas deberían mantenerse sin cambios entre la primera y segunda ejecución. **Anotar los valores obtenidos realmente**, no copiar los valores esperados como si fueran resultados.
+
+### Integridad y rollback
+
+```powershell
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py --verificar
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py --probar-rollback
+```
+
+`--verificar` comprueba en una sesión nueva los 8 registros de ejemplo y sus relaciones. `--probar-rollback` inserta un cliente temporal y provoca una excepción controlada: debe terminar con `ROLLBACK EXITOSO` sin conservar dicho cliente.
+
+Las claves foráneas deben apuntar a registros existentes; la base contiene restricciones únicas para `clientes.email` y `vehiculos.patente`. Para ensayos destructivos adicionales de restricciones (violaciones de FK o unicidad), usar **solamente** la base exclusiva de pruebas y registrar el error observado y el estado final, nunca una base real compartida. El seeder recupera registros existentes por sus identificadores naturales y no sobrescribe datos ajenos.
+
+### Qué datos registrar para la revisión
+
+Guardar el nombre de la base de pruebas (sin credenciales), salida de Alembic, cantidades antes y después de ambas pasadas, IDs de las dos cadenas, salida de `--verificar`, salida de `--probar-rollback` y cualquier error. Comprobar opcionalmente los cuatro GET en Swagger con el backend de **este proyecto Compose aislado**, verificando que el puerto 8000 esté libre. No levantar ese backend si hay una aplicación compartida escuchando en dicho puerto.
+
+## Preparación y ejecución local (SQLite o base configurada)
 
 Desde la **raíz del repositorio** (donde se encuentra `pyproject.toml`), con Python 3.13 y `uv`:
 
@@ -113,6 +175,6 @@ Si ocurre un error de validación, duplicidad o relación durante una carga norm
 
 En una base local SQLite aislada, con copias de los modelos ORM, esquemas Pydantic y la inicialización de `main`, se ejecutó el script: primera pasada `2/2/2/2`, segunda pasada `0/0/0/0`, consulta independiente de las dos relaciones, verificación tras iniciar un segundo proceso y prueba de rollback exitosa. También se provocó una colisión de patente con un cliente diferente: el script devolvió error y no dejó el cliente insertado antes del fallo. **Esas ejecuciones no son evidencia de pruebas ejecutadas en el entorno del usuario ni de los endpoints del repositorio completo**. Deben repetirse los comandos anteriores en un clon actualizado del repositorio antes del merge definitivo.
 
-## Restricciones respetadas
+## Alcance del seeder
 
-Solo se agregan `scripts/seed_db.py` y `docs/seeders.md`. No se modifican modelos, repositorios, servicios, routers, esquemas, migraciones, configuración ni dependencias. Las reparaciones se asocian a órdenes existentes, las órdenes a vehículos existentes y los vehículos a clientes existentes.
+El seeder existente no modifica modelos, repositorios, servicios, routers, esquemas, migraciones, configuración ni dependencias. Las reparaciones se asocian a órdenes existentes, las órdenes a vehículos existentes y los vehículos a clientes existentes. Las mejoras de documentación Swagger del módulo Reparaciones se realizan aparte, sin cambiar su lógica funcional.
