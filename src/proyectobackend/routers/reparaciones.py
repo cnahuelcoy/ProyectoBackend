@@ -1,3 +1,5 @@
+"""Endpoints de Reparaciones y documentación de sus respuestas HTTP."""
+
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 
@@ -16,24 +18,26 @@ from proyectobackend.schemas.reparacion import (
 from proyectobackend.services.reparacion_service import ReparacionService
 
 
-router = APIRouter(
-    prefix="/reparaciones",
-    tags=["Reparaciones"],
-    responses={
-        422: {"model": ErrorResponse},
-    },
-)
+router = APIRouter(prefix="/reparaciones", tags=["Reparaciones"])
 
-
-RESPUESTAS_ERROR = {
-    400: {
+# Se documentan únicamente los códigos que pueden producir estas rutas.
+ERROR_VALIDACION = {
+    422: {
         "model": ErrorResponse,
-        "description": "Regla de negocio violada",
-    },
+        "description": "Datos del cuerpo o parámetros de la URL inválidos.",
+    }
+}
+ERROR_NO_ENCONTRADA = {
     404: {
         "model": ErrorResponse,
-        "description": "Recurso no encontrado en el sistema",
-    },
+        "description": "Recurso relacionado o reparación no encontrada.",
+    }
+}
+ERROR_FECHA = {
+    400: {
+        "model": ErrorResponse,
+        "description": "La fecha de reparación no puede ser futura (INVALID_REPAIR_DATE).",
+    }
 }
 
 
@@ -75,7 +79,20 @@ def error_json_response(
     "/",
     response_model=ReparacionResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=RESPUESTAS_ERROR,
+    summary="Crear reparación",
+    description=(
+        "Registra una reparación asociada a una orden de trabajo existente. "
+        "La fecha no puede ser posterior al día actual. "
+        "Una orden inexistente devuelve 404; una fecha futura, 400."
+    ),
+    responses={
+        400: ERROR_FECHA[400],
+        404: {
+            "model": ErrorResponse,
+            "description": "La orden de trabajo indicada no existe (WORK_ORDER_NOT_FOUND).",
+        },
+        **ERROR_VALIDACION,
+    },
 )
 def crear_reparacion(
     dto: ReparacionCreate,
@@ -107,6 +124,8 @@ def crear_reparacion(
     "/",
     response_model=list[ReparacionResponse],
     status_code=status.HTTP_200_OK,
+    summary="Listar reparaciones",
+    description="Obtiene las reparaciones registradas, ordenadas por ID.",
 )
 def listar_reparaciones(
     service: ReparacionService = Depends(get_reparacion_service),
@@ -118,11 +137,14 @@ def listar_reparaciones(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
+    summary="Obtener reparación por ID",
+    description="Consulta una reparación existente. Devuelve 404 si no existe.",
     responses={
         404: {
             "model": ErrorResponse,
-            "description": "Reparación no encontrada",
+            "description": "Reparación no encontrada (REPAIR_NOT_FOUND).",
         },
+        **ERROR_VALIDACION,
     },
 )
 def obtener_reparacion(
@@ -146,7 +168,19 @@ def obtener_reparacion(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
-    responses=RESPUESTAS_ERROR,
+    summary="Actualizar reparación",
+    description=(
+        "Actualiza los campos enviados de una reparación existente. "
+        "Una fecha futura devuelve 400; una reparación inexistente, 404."
+    ),
+    responses={
+        **ERROR_FECHA,
+        404: {
+            "model": ErrorResponse,
+            "description": "Reparación no encontrada (REPAIR_NOT_FOUND).",
+        },
+        **ERROR_VALIDACION,
+    },
 )
 def actualizar_reparacion(
     reparacion_id: int,
@@ -181,11 +215,14 @@ def actualizar_reparacion(
 @router.delete(
     "/{reparacion_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Eliminar reparación",
+    description="Elimina una reparación existente sin devolver cuerpo (204).",
     responses={
         404: {
             "model": ErrorResponse,
-            "description": "Reparación no encontrada",
+            "description": "Reparación no encontrada (REPAIR_NOT_FOUND).",
         },
+        **ERROR_VALIDACION,
     },
 )
 def eliminar_reparacion(
