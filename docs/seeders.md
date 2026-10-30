@@ -4,7 +4,7 @@ El archivo `scripts/seed_db.py` inserta **dos clientes, dos vehículos, dos órd
 
 ## Verificación segura con PostgreSQL y Docker (base aislada)
 
-**Advertencia:** ejecutar estas comprobaciones únicamente en una **base de pruebas nueva**, nunca en la base compartida ni de producción. El ejemplo usa otro clon, otro proyecto de Docker Compose y otro volumen; no contiene credenciales reales. **Este procedimiento está documentado, pero no supone que se haya ejecutado.**
+**Advertencia:** ejecutar estas comprobaciones únicamente en una **base de pruebas nueva**, nunca en la base compartida ni de producción. El ejemplo usa otro clon, otro proyecto de Docker Compose y otro volumen; no contiene credenciales reales. **Estos comandos son un ejemplo reproducible; las comprobaciones efectivamente ejecutadas y sus resultados se documentan al final de esta guía.**
 
 Requisitos: Git, Docker Desktop + Compose y un clon limpio del repositorio. En PowerShell, desde una carpeta distinta de la copia que utiliza el equipo:
 
@@ -173,8 +173,57 @@ Si ocurre un error de validación, duplicidad o relación durante una carga norm
 
 ## Alcance de las comprobaciones de desarrollo
 
-En una base local SQLite aislada, con copias de los modelos ORM, esquemas Pydantic y la inicialización de `main`, se ejecutó el script: primera pasada `2/2/2/2`, segunda pasada `0/0/0/0`, consulta independiente de las dos relaciones, verificación tras iniciar un segundo proceso y prueba de rollback exitosa. También se provocó una colisión de patente con un cliente diferente: el script devolvió error y no dejó el cliente insertado antes del fallo. **Esas ejecuciones no son evidencia de pruebas ejecutadas en el entorno del usuario ni de los endpoints del repositorio completo**. Deben repetirse los comandos anteriores en un clon actualizado del repositorio antes del merge definitivo.
+En una base local SQLite aislada, con copias de los modelos ORM, esquemas Pydantic y la inicialización de `main`, se ejecutó el script: primera pasada `2/2/2/2`, segunda pasada `0/0/0/0`, consulta independiente de las dos relaciones, verificación tras iniciar un segundo proceso y prueba de rollback exitosa. También se provocó una colisión de patente con un cliente diferente: el script devolvió error y no dejó el cliente insertado antes del fallo. **Las comprobaciones SQLite descritas en este párrafo corresponden a una etapa previa**. La ejecución posterior sobre PostgreSQL aislado y las pruebas HTTP de Reparaciones están registradas a continuación.
 
 ## Alcance del seeder
 
 El seeder existente no modifica modelos, repositorios, servicios, routers, esquemas, migraciones, configuración ni dependencias. Las reparaciones se asocian a órdenes existentes, las órdenes a vehículos existentes y los vehículos a clientes existentes. Las mejoras de documentación Swagger del módulo Reparaciones se realizan aparte, sin cambiar su lógica funcional.
+
+## Evidencias reales de las pruebas (30/10/2026)
+
+Las siguientes pruebas se ejecutaron **en el computador del integrante** usando Docker Compose con el proyecto independiente `taller-seeders-audit`, PostgreSQL 17 y la base `taller_seeders_audit`. Las salidas se revisaron mediante capturas de su terminal de VS Code y Swagger. **No son resultados obtenidos mediante CI ni se adjuntaron las capturas a este repositorio.**
+
+| Comprobación | Resultado observado |
+|---|---|
+| Docker PostgreSQL | Contenedor `taller-seeders-audit-db-1` en estado `healthy` |
+| Migración Alembic | `upgrade head` exitoso; `current` devolvió `0001 (head)` |
+| Conteos iniciales (cliente/vehículo/orden/reparación) | `0 / 0 / 0 / 0` |
+| Primera ejecución | `2 / 2 / 2 / 2`, ocho registros nuevos |
+| Segunda ejecución | `0 / 0 / 0 / 0` registros **nuevos**; mismos IDs |
+| Conteos posteriores | `2 / 2 / 2 / 2` |
+| Relaciones verificadas por el script | `1 → 1 → 1 → 1` y `2 → 2 → 2 → 2` |
+| Rollback intencional | `ROLLBACK EXITOSO`, registro temporal no persistió |
+| Correos duplicados | PostgreSQL rechazó la inserción por `clientes_email_key`; `ROLLBACK` |
+| Cliente inexistente para vehículo | PostgreSQL rechazó `cliente_id=999999` por `vehiculos_cliente_id_fkey`; `ROLLBACK` |
+| Consulta SQL de huérfanos | 0 vehículos, 0 órdenes y 0 reparaciones huérfanas |
+| Conteos tras ambas pruebas negativas | `2 / 2 / 2 / 2`; ninguna inserción parcial |
+| `--verificar` después de las pruebas negativas | `VERIFICACIÓN EXITOSA`; ambas cadenas conservadas |
+
+### Endpoints de Reparaciones comprobados con esta PostgreSQL de prueba
+
+| Solicitud realizada desde Swagger | Resultado |
+|---|---|
+| `GET /reparaciones/` | 200; dos reparaciones iniciales (IDs 1 y 2) |
+| `GET /reparaciones/1` | 200, según confirmación del integrante |
+| `GET /reparaciones/999999` | 404, según confirmación del integrante |
+| `POST /reparaciones/` (dato temporal asociado a orden 1) | 201; nueva reparación ID 3 |
+| `PATCH /reparaciones/3` | 200; descripción y costo modificados a 20000 |
+| `DELETE /reparaciones/3` | 204; respuesta sin cuerpo |
+| `GET /reparaciones/3` tras eliminar | 404, error `REPAIR_NOT_FOUND` |
+| `GET /reparaciones/` final | 200; solo IDs 1 y 2, con los datos iniciales |
+
+La creación, modificación y eliminación se aplicaron **solo a la reparación temporal ID 3**. Las reparaciones 1 y 2 no se alteraron.
+
+Las comprobaciones HTTP anteriores se realizaron contra el backend Docker de esta base PostgreSQL. Los errores 400 por fecha futura y 422 por validación fueron revisados en las pruebas del contrato HTTP con servicio simulado; **no hay evidencia de ejecución de esos dos casos contra PostgreSQL real**. Tampoco se hizo una prueba adicional de reinicio del contenedor backend sobre PostgreSQL para este cierre.
+
+### Comandos de verificación SQL usados en esta ejecución
+
+Aparte de `alembic` y las dos ejecuciones del seeder indicadas anteriormente, se usaron:
+
+```powershell
+docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db psql -U taller_audit -d taller_seeders_audit -c "SELECT (SELECT COUNT(*) FROM clientes) AS clientes, (SELECT COUNT(*) FROM vehiculos) AS vehiculos, (SELECT COUNT(*) FROM ordenes_trabajo) AS ordenes, (SELECT COUNT(*) FROM reparaciones) AS reparaciones;"
+```
+
+Para probar restricciones se realizaron transacciones controladas `BEGIN` → `INSERT` inválido → `ROLLBACK`, solamente en la base de pruebas. Ningún fallo se provocó en una base compartida.
+
+**Conclusión de estas evidencias:** la migración, idempotencia, referencias entre semillas, restricciones FK/UNIQUE y rollback quedaron demostrados en PostgreSQL aislado. Los escenarios HTTP no comprobados en base real quedan identificados sin declararlos aprobados.
