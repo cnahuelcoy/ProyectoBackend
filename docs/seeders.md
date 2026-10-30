@@ -44,7 +44,7 @@ docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync pytho
 Ejecutar **exactamente el mismo comando una segunda vez**, repetir de nuevo la consulta de cantidades y comparar los IDs mediante esta consulta (también antes y después de la segunda ejecución):
 
 ```powershell
-docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.id AS cliente_id, v.id AS vehiculo_id, o.id AS orden_id, r.id AS reparacion_id, c.email, v.patente FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id WHERE c.email LIKE '\''seed.cliente%@example.com'\'' ORDER BY c.id;"'
+docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.id AS cliente_id, v.id AS vehiculo_id, o.id AS orden_id, r.id AS reparacion_id, c.email, v.patente FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id ORDER BY c.id;"'
 ```
 
 En una base realmente vacía y migrada se **espera**, en orden, `0/0/0/0 → 2/2/2/2 → 2/2/2/2`. Los IDs de las dos cadenas deberían mantenerse sin cambios entre la primera y segunda ejecución. **Anotar los valores obtenidos realmente**, no copiar los valores esperados como si fueran resultados.
