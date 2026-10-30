@@ -19,21 +19,35 @@ from proyectobackend.services.reparacion_service import ReparacionService
 router = APIRouter(
     prefix="/reparaciones",
     tags=["Reparaciones"],
-    responses={
-        422: {"model": ErrorResponse},
-    },
 )
 
-
-RESPUESTAS_ERROR = {
-    400: {
-        "model": ErrorResponse,
-        "description": "Regla de negocio violada",
+# Documentamos solo los errores que realmente maneja cada endpoint.
+ERROR_422 = {
+    "model": ErrorResponse,
+    "description": "Datos de entrada inválidos (validación Pydantic).",
+}
+ERROR_400_FECHA = {
+    "model": ErrorResponse,
+    "description": "La fecha de la reparación no puede ser futura.",
+    "content": {
+        "application/json": {
+            "example": {
+                "error": {
+                    "code": "INVALID_REPAIR_DATE",
+                    "message": "La fecha de la reparación no puede ser futura",
+                    "details": [],
+                }
+            }
+        }
     },
-    404: {
-        "model": ErrorResponse,
-        "description": "Recurso no encontrado en el sistema",
-    },
+}
+ERROR_404_ORDEN = {
+    "model": ErrorResponse,
+    "description": "La orden de trabajo indicada no existe.",
+}
+ERROR_404_REPARACION = {
+    "model": ErrorResponse,
+    "description": "No existe una reparación con el ID indicado.",
 }
 
 
@@ -75,7 +89,12 @@ def error_json_response(
     "/",
     response_model=ReparacionResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=RESPUESTAS_ERROR,
+    summary="Crear reparación",
+    description=(
+        "Registra una reparación para una orden de trabajo existente. "
+        "La fecha no puede ser futura y el costo debe ser mayor o igual a cero."
+    ),
+    responses={400: ERROR_400_FECHA, 404: ERROR_404_ORDEN, 422: ERROR_422},
 )
 def crear_reparacion(
     dto: ReparacionCreate,
@@ -107,6 +126,8 @@ def crear_reparacion(
     "/",
     response_model=list[ReparacionResponse],
     status_code=status.HTTP_200_OK,
+    summary="Listar reparaciones",
+    description="Devuelve todas las reparaciones registradas, ordenadas por ID.",
 )
 def listar_reparaciones(
     service: ReparacionService = Depends(get_reparacion_service),
@@ -118,12 +139,9 @@ def listar_reparaciones(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
-    responses={
-        404: {
-            "model": ErrorResponse,
-            "description": "Reparación no encontrada",
-        },
-    },
+    summary="Obtener reparación por ID",
+    description="Consulta una reparación existente por su identificador numérico.",
+    responses={404: ERROR_404_REPARACION, 422: ERROR_422},
 )
 def obtener_reparacion(
     reparacion_id: int,
@@ -146,7 +164,12 @@ def obtener_reparacion(
     "/{reparacion_id}",
     response_model=ReparacionResponse,
     status_code=status.HTTP_200_OK,
-    responses=RESPUESTAS_ERROR,
+    summary="Actualizar reparación",
+    description=(
+        "Actualiza los datos indicados de una reparación existente. "
+        "La fecha no puede ser futura y el costo no puede ser negativo."
+    ),
+    responses={400: ERROR_400_FECHA, 404: ERROR_404_REPARACION, 422: ERROR_422},
 )
 def actualizar_reparacion(
     reparacion_id: int,
@@ -181,12 +204,9 @@ def actualizar_reparacion(
 @router.delete(
     "/{reparacion_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={
-        404: {
-            "model": ErrorResponse,
-            "description": "Reparación no encontrada",
-        },
-    },
+    summary="Eliminar reparación",
+    description="Elimina una reparación por ID. Devuelve 204 sin cuerpo si existe.",
+    responses={404: ERROR_404_REPARACION, 422: ERROR_422},
 )
 def eliminar_reparacion(
     reparacion_id: int,
