@@ -95,6 +95,26 @@ Esta separación permite mantener las rutas independientes de la lógica de nego
 
 La persistencia se realiza mediante SQLAlchemy, utilizando PostgreSQL en Docker y SQLite como alternativa para desarrollo local y pruebas.
 
+## Diagramas del sistema
+
+### UML de clases
+
+Representa las cuatro entidades del dominio y sus relaciones.
+
+![UML de clases](docs/diagramas/uml-dominio.svg)
+
+### Diagrama entidad-relación
+
+Muestra las tablas, claves y relaciones de la base de datos.
+
+![Diagrama entidad-relación](docs/diagramas/erd-postgresql.svg)
+
+### Arquitectura por capas
+
+Muestra el recorrido de una solicitud desde la API hasta PostgreSQL.
+
+![Arquitectura por capas](docs/diagramas/arquitectura-capas.svg)
+
 ## Dependencias actuales
 
 El proyecto utiliza las siguientes dependencias y tecnologías:
