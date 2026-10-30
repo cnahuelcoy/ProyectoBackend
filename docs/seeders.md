@@ -130,8 +130,51 @@ uv run python -c "import sqlite3; c=sqlite3.connect('taller_mecanico.db'); print
 
 En una base nueva se esperan 2 registros de cada entidad. En una base con registros previos, los totales pueden ser mayores; la segunda ejecución debe conservar los conteos y los IDs de las semillas.
 
-## Estado de las evidencias
+## Evidencias reales de las pruebas (30/10/2026)
 
-El 28 de octubre de 2026 se comprobaron en SQLite local los dos registros por entidad, sus relaciones con Swagger, el rollback de prueba y la persistencia después de reiniciar Uvicorn.
+Las siguientes pruebas se ejecutaron **en el computador del integrante** usando Docker Compose con el proyecto independiente `taller-seeders-audit`, PostgreSQL 17 y la base `taller_seeders_audit`. Las salidas se revisaron mediante capturas de su terminal de VS Code y Swagger. **No son resultados obtenidos mediante CI ni se adjuntaron las capturas a este repositorio.**
 
-**La comprobación requerida en PostgreSQL aislado (migración, doble ejecución, conteos, IDs, errores de unicidad e integridad) necesita evidencia de una ejecución real.** No se considera aprobada únicamente por el funcionamiento anterior con SQLite.
+| Comprobación | Resultado observado |
+|---|---|
+| Docker PostgreSQL | Contenedor `taller-seeders-audit-db-1` en estado `healthy` |
+| Migración Alembic | `upgrade head` exitoso; `current` devolvió `0001 (head)` |
+| Conteos iniciales (cliente/vehículo/orden/reparación) | `0 / 0 / 0 / 0` |
+| Primera ejecución | `2 / 2 / 2 / 2`, ocho registros nuevos |
+| Segunda ejecución | `0 / 0 / 0 / 0` registros **nuevos**; mismos IDs |
+| Conteos posteriores | `2 / 2 / 2 / 2` |
+| Relaciones verificadas por el script | `1 → 1 → 1 → 1` y `2 → 2 → 2 → 2` |
+| Rollback intencional | `ROLLBACK EXITOSO`, registro temporal no persistió |
+| Correos duplicados | PostgreSQL rechazó la inserción por `clientes_email_key`; `ROLLBACK` |
+| Cliente inexistente para vehículo | PostgreSQL rechazó `cliente_id=999999` por `vehiculos_cliente_id_fkey`; `ROLLBACK` |
+| Consulta SQL de huérfanos | 0 vehículos, 0 órdenes y 0 reparaciones huérfanas |
+| Conteos tras ambas pruebas negativas | `2 / 2 / 2 / 2`; ninguna inserción parcial |
+| `--verificar` después de las pruebas negativas | `VERIFICACIÓN EXITOSA`; ambas cadenas conservadas |
+
+### Endpoints de Reparaciones comprobados con esta PostgreSQL de prueba
+
+| Solicitud realizada desde Swagger | Resultado |
+|---|---|
+| `GET /reparaciones/` | 200; dos reparaciones iniciales (IDs 1 y 2) |
+| `GET /reparaciones/1` | 200, según confirmación del integrante |
+| `GET /reparaciones/999999` | 404, según confirmación del integrante |
+| `POST /reparaciones/` (dato temporal asociado a orden 1) | 201; nueva reparación ID 3 |
+| `PATCH /reparaciones/3` | 200; descripción y costo modificados a 20000 |
+| `DELETE /reparaciones/3` | 204; respuesta sin cuerpo |
+| `GET /reparaciones/3` tras eliminar | 404, error `REPAIR_NOT_FOUND` |
+| `GET /reparaciones/` final | 200; solo IDs 1 y 2, con los datos iniciales |
+
+La creación, modificación y eliminación se aplicaron **solo a la reparación temporal ID 3**. Las reparaciones 1 y 2 no se alteraron.
+
+Las comprobaciones HTTP anteriores se realizaron contra el backend Docker de esta base PostgreSQL. Los errores 400 por fecha futura y 422 por validación fueron revisados en las pruebas del contrato HTTP con servicio simulado; **no hay evidencia de ejecución de esos dos casos contra PostgreSQL real**. Tampoco se hizo una prueba adicional de reinicio del contenedor backend sobre PostgreSQL para este cierre.
+
+### Comandos de verificación SQL usados en esta ejecución
+
+Aparte de `alembic` y las dos ejecuciones del seeder indicadas anteriormente, se usaron:
+
+```powershell
+docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db psql -U taller_audit -d taller_seeders_audit -c "SELECT (SELECT COUNT(*) FROM clientes) AS clientes, (SELECT COUNT(*) FROM vehiculos) AS vehiculos, (SELECT COUNT(*) FROM ordenes_trabajo) AS ordenes, (SELECT COUNT(*) FROM reparaciones) AS reparaciones;"
+```
+
+Para probar restricciones se realizaron transacciones controladas `BEGIN` → `INSERT` inválido → `ROLLBACK`, solamente en la base de pruebas. Ningún fallo se provocó en una base compartida.
+
+**Conclusión de estas evidencias:** la migración, idempotencia, referencias entre semillas, restricciones FK/UNIQUE y rollback quedaron demostrados en PostgreSQL aislado. Los escenarios HTTP no comprobados en base real quedan identificados sin declararlos aprobados.
