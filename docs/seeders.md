@@ -77,7 +77,7 @@ docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm 
 Para una comprobación SQL adicional de las relaciones:
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.email, v.patente, o.id AS orden_id, r.id AS reparacion_id FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id WHERE c.email IN (\x27seed.cliente01@example.com\x27,\x27seed.cliente02@example.com\x27) ORDER BY c.email"'
+docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.email, v.patente, o.id AS orden_id, r.id AS reparacion_id FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id ORDER BY c.email"'
 ```
 
 El resultado esperado son **2 filas**. Registra los conteos, los IDs de las dos pasadas y los mensajes reales en el informe; no los sustituyas por los valores esperados.
