@@ -27,12 +27,6 @@ ERROR_VALIDACION = {
         "description": "Datos del cuerpo o parámetros de la URL inválidos.",
     }
 }
-ERROR_NO_ENCONTRADA = {
-    404: {
-        "model": ErrorResponse,
-        "description": "Recurso relacionado o reparación no encontrada.",
-    }
-}
 ERROR_FECHA = {
     400: {
         "model": ErrorResponse,
