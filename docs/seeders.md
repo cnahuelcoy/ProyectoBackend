@@ -1,134 +1,183 @@
-# Seeders — Taller Mecánico
+# Parte 5 — Seeders y datos iniciales
 
-El proyecto tiene **un seeder**: `scripts/seed_db.py`. Inserta, si aún no existen, 2 clientes, 2 vehículos, 2 órdenes de trabajo y 2 reparaciones relacionadas en este orden:
+El archivo `scripts/seed_db.py` inserta **dos clientes, dos vehículos, dos órdenes de trabajo y dos reparaciones** en la base configurada (SQLite o PostgreSQL), enlazados como `Cliente → Vehículo → Orden de Trabajo → Reparación`. No crea migraciones nuevas ni modifica reglas de negocio, modelos o endpoints. En PostgreSQL, las migraciones existentes deben aplicarse **antes** de ejecutar este script.
 
-`Cliente → Vehículo → Orden de Trabajo → Reparación`
+## Verificación segura con PostgreSQL y Docker (base aislada)
 
-Utiliza los modelos SQLAlchemy y los esquemas Pydantic del proyecto. La base utilizada depende de `DATABASE_URL`: PostgreSQL con Docker o SQLite local. No modifica registros ya existentes.
+**Advertencia:** ejecutar estas comprobaciones únicamente en una **base de pruebas nueva**, nunca en la base compartida ni de producción. El ejemplo usa otro clon, otro proyecto de Docker Compose y otro volumen; no contiene credenciales reales. **Estos comandos son un ejemplo reproducible; las comprobaciones efectivamente ejecutadas y sus resultados se documentan al final de esta guía.**
 
-## Datos de ejemplo
-
-| Cliente (correo) | Vehículo (patente) | Orden (marcador) | Reparación (marcador) |
-|---|---|---|---|
-| `seed.cliente01@example.com` | `SBAB12` (Toyota Yaris) | `SEED_P5_OT_01` | `SEED_P5_REP_01` (diagnóstico, 25000) |
-| `seed.cliente02@example.com` | `SBCD34` (Hyundai Accent) | `SEED_P5_OT_02` | `SEED_P5_REP_02` (mantención, 85000) |
-
-El script busca clientes por correo (sin distinguir mayúsculas), vehículos por patente (sin distinguir mayúsculas) y órdenes/reparaciones por su descripción identificable. Reutiliza los IDs reales para las claves foráneas; **no depende de IDs fijos**. Si un dato identificado ya existe asociado a otro padre, interrumpe la carga. No cambies los marcadores de las descripciones si quieres conservar la idempotencia.
-
-Utiliza `SessionLocal.begin()` para una sola transacción de inserción: hace `commit` al completar las cuatro entidades, o `rollback` si una operación falla. `session.flush()` permite obtener los IDs sin confirmar parcialmente los registros.
-
-## A. Prueba segura con PostgreSQL en Docker (base aislada)
-
-**No ejecutes pruebas de errores, rollback ni inserciones de demostración sobre una base compartida o de producción.** Usa un proyecto Docker Compose con nombre exclusivo, su propio volumen y variables de entorno independientes.
-
-Requisitos: Docker Desktop con Compose, Git y la imagen del backend construible. Desde la raíz del repositorio, en PowerShell:
+Requisitos: Git, Docker Desktop + Compose y un clon limpio del repositorio. En PowerShell, desde una carpeta distinta de la copia que utiliza el equipo:
 
 ```powershell
-Copy-Item .env.example ../seeders-audit.env
+git clone https://github.com/cnahuelcoy/backend-2026-grupo-06.git backend-seeders-audit
+cd backend-seeders-audit
+Copy-Item .env.example .env
 ```
 
-Edita `../seeders-audit.env` (fuera del repositorio) con **credenciales propias de prueba** y un nombre de base exclusivo, por ejemplo `POSTGRES_DB=taller_seeders_audit`. Nunca subas ese archivo a GitHub. El `compose.yaml` usa `POSTGRES_USER`, `POSTGRES_PASSWORD` y `POSTGRES_DB`; el backend recibe `DATABASE_URL` construido para el servicio `db`.
+Editar el archivo `.env` **solo dentro del clon de pruebas**: establecer `POSTGRES_DB=seeders_audit_db` y una contraseña propia para `POSTGRES_PASSWORD`; conservar o configurar `POSTGRES_USER`. No subir `.env` ni pegar la contraseña en evidencias. La URL `DATABASE_URL` del contenedor backend se construye automáticamente desde las variables de Compose.
 
-Todos los comandos siguientes usan el proyecto aislado `taller-seeders-audit`:
+Usar siempre el mismo nombre de proyecto **exclusivo** para evitar utilizar contenedores o volúmenes del equipo:
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env build backend
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env up -d db
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync alembic upgrade head
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync alembic current
+docker compose -p seeders_audit_20261029 build backend
+docker compose -p seeders_audit_20261029 up -d db
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync alembic upgrade head
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync alembic current
 ```
 
-**Migra primero y ejecuta el seeder después.** `seed_db.py` llama a `init_db()` y, si se lanza antes que Alembic sobre una base completamente vacía, `create_all()` puede crear tablas sin registrar la versión de migraciones. En una base nueva correctamente migrada, `current` debe mostrar `0001 (head)`.
+Resultado **esperado**, no certificado: Alembic en revisión `0001 (head)`. **No ejecutar `alembic downgrade`, `drop_all` ni eliminar volúmenes de bases compartidas.**
 
-### Conteos antes y después
+### Medir antes, después de la primera ejecución y después de la segunda
 
-Ejecuta este comando en cada uno de los tres momentos: **antes de la carga**, **después de la primera carga** y **después de la segunda carga**:
+Tomar una captura de las cantidades antes de insertar:
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT (SELECT COUNT(*) FROM clientes), (SELECT COUNT(*) FROM vehiculos), (SELECT COUNT(*) FROM ordenes_trabajo), (SELECT COUNT(*) FROM reparaciones)"'
+docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT (SELECT count(*) FROM clientes) AS clientes, (SELECT count(*) FROM vehiculos) AS vehiculos, (SELECT count(*) FROM ordenes_trabajo) AS ordenes, (SELECT count(*) FROM reparaciones) AS reparaciones;"'
 ```
 
-La salida es una fila en orden `clientes|vehiculos|ordenes_trabajo|reparaciones`. En una base nueva, se esperan los siguientes valores; **son expectativas, no resultados de una ejecución de PostgreSQL en esta revisión**:
-
-| Momento | Conteos esperados |
-|---|---|
-| Antes de ejecutar | `0|0|0|0` |
-| Primera ejecución | `2|2|2|2` |
-| Segunda ejecución | `2|2|2|2` |
-
-Para insertar y volver a insertar:
+Ejecutar una vez y repetir la consulta anterior:
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync python scripts/seed_db.py
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync python scripts/seed_db.py
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py
 ```
 
-La primera ejecución debería indicar 2 registros nuevos por entidad y la segunda, **0 nuevos**. Conserva las líneas `Cadena 1` y `Cadena 2` con sus IDs para verificar que no cambiaron.
-
-### Integridad de las relaciones y rollback
+Ejecutar **exactamente el mismo comando una segunda vez**, repetir de nuevo la consulta de cantidades y comparar los IDs mediante esta consulta (también antes y después de la segunda ejecución):
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync python scripts/seed_db.py --verificar
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env run --rm backend uv run --no-sync python scripts/seed_db.py --probar-rollback
+docker compose -p seeders_audit_20261029 exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.id AS cliente_id, v.id AS vehiculo_id, o.id AS orden_id, r.id AS reparacion_id, c.email, v.patente FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id ORDER BY c.id;"'
 ```
 
-`--verificar` consulta en otra sesión los ocho registros y comprueba que cada ID de cliente, vehículo y orden coincida con la clave foránea del siguiente nivel. `--probar-rollback` inserta temporalmente un cliente, provoca un error antes del commit y verifica en una nueva sesión que dicho cliente no exista.
+En una base realmente vacía y migrada se **espera**, en orden, `0/0/0/0 → 2/2/2/2 → 2/2/2/2`. Los IDs de las dos cadenas deberían mantenerse sin cambios entre la primera y segunda ejecución. **Anotar los valores obtenidos realmente**, no copiar los valores esperados como si fueran resultados.
 
-Para una comprobación SQL adicional de las relaciones:
+### Integridad y rollback
 
 ```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT c.email, v.patente, o.id AS orden_id, r.id AS reparacion_id FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id ORDER BY c.email"'
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py --verificar
+docker compose -p seeders_audit_20261029 run --rm backend uv run --no-sync python scripts/seed_db.py --probar-rollback
 ```
 
-El resultado esperado son **2 filas**. Registra los conteos, los IDs de las dos pasadas y los mensajes reales en el informe; no los sustituyas por los valores esperados.
+`--verificar` comprueba en una sesión nueva los 8 registros de ejemplo y sus relaciones. `--probar-rollback` inserta un cliente temporal y provoca una excepción controlada: debe terminar con `ROLLBACK EXITOSO` sin conservar dicho cliente.
 
-### API y persistencia
+Las claves foráneas deben apuntar a registros existentes; la base contiene restricciones únicas para `clientes.email` y `vehiculos.patente`. Para ensayos destructivos adicionales de restricciones (violaciones de FK o unicidad), usar **solamente** la base exclusiva de pruebas y registrar el error observado y el estado final, nunca una base real compartida. El seeder recupera registros existentes por sus identificadores naturales y no sobrescribe datos ajenos.
 
-Después de aplicar migraciones:
+### Qué datos registrar para la revisión
 
-```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env up -d backend
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env ps
-```
+Guardar el nombre de la base de pruebas (sin credenciales), salida de Alembic, cantidades antes y después de ambas pasadas, IDs de las dos cadenas, salida de `--verificar`, salida de `--probar-rollback` y cualquier error. Comprobar opcionalmente los cuatro GET en Swagger con el backend de **este proyecto Compose aislado**, verificando que el puerto 8000 esté libre. No levantar ese backend si hay una aplicación compartida escuchando en dicho puerto.
 
-Abre `http://localhost:8000/docs` y consulta `GET /clientes`, `GET /vehiculos/`, `GET /ordenes-trabajo` y `GET /reparaciones/`. Los clientes y las órdenes usan `items` en sus listados paginados.
+## Preparación y ejecución local (SQLite o base configurada)
 
-Para comprobar persistencia, reinicia solamente la API:
-
-```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env restart backend
-```
-
-Repite los GET y `--verificar`. No borres el volumen. Para detener los contenedores sin borrar datos:
-
-```powershell
-docker compose -p taller-seeders-audit --env-file ../seeders-audit.env down
-```
-
-No añadas `-v` a `down` si quieres conservar los datos de la prueba.
-
-## B. Ejecución local con SQLite
-
-Si no se define `DATABASE_URL`, `database/session.py` utiliza `sqlite:///./taller_mecanico.db`. Desde la raíz:
+Desde la **raíz del repositorio** (donde se encuentra `pyproject.toml`), con Python 3.13 y `uv`:
 
 ```powershell
 uv sync
 uv run python scripts/seed_db.py
-uv run python scripts/seed_db.py
-uv run python scripts/seed_db.py --verificar
-uv run python scripts/seed_db.py --probar-rollback
-uv run uvicorn proyectobackend.main:app --reload
 ```
 
-El seeder puede crear tablas mediante `init_db()` para desarrollo SQLite. No uses ese comportamiento como sustituto de `alembic upgrade head` al comprobar PostgreSQL. En SQLite las FK no se imponen por defecto si no está activado `PRAGMA foreign_keys=ON`; por eso `--verificar` comprueba explícitamente las relaciones de las semillas.
+La inicialización existente `proyectobackend.database.init_db.init_db()` ejecuta `Base.metadata.create_all()` antes de cargar datos. Por ello, funciona tanto en una base SQLite vacía como en una base con las tablas ya creadas. La ubicación de la base de desarrollo es `./taller_mecanico.db`, relativa al directorio de ejecución según `database/session.py`.
 
-### Comprobación SQL local
+En una primera ejecución sobre una base vacía, el resultado esperado es:
+
+```text
+Nuevos registros por entidad: {'clientes': 2, 'vehiculos': 2, 'ordenes_trabajo': 2, 'reparaciones': 2}
+Cadena 1: cliente=1 -> vehículo=1 -> orden=1 -> reparación=1
+Cadena 2: cliente=2 -> vehículo=2 -> orden=2 -> reparación=2
+VERIFICACIÓN EXITOSA: 2 registros iniciales por entidad y relaciones correctas.
+```
+
+Los identificadores son **autoincrementales**: si la base ya tiene datos, pueden ser distintos de 1 y 2. En tal caso, se agregan únicamente las filas de ejemplo que todavía no existan.
+
+### Segunda ejecución: idempotencia
+
+Ejecutar exactamente el mismo comando:
+
+```powershell
+uv run python scripts/seed_db.py
+```
+
+Si no se han modificado los identificadores de las semillas, debe mostrar:
+
+```text
+Nuevos registros por entidad: {'clientes': 0, 'vehiculos': 0, 'ordenes_trabajo': 0, 'reparaciones': 0}
+VERIFICACIÓN EXITOSA: 2 registros iniciales por entidad y relaciones correctas.
+```
+
+Para verificar sin insertar:
+
+```powershell
+uv run python scripts/seed_db.py --verificar
+```
+
+El seeder identifica clientes por correo electrónico (ignorando mayúsculas), vehículos por patente (ignorando mayúsculas), órdenes por la descripción con marcador `SEED_P5_OT_*` y reparaciones por la descripción con marcador `SEED_P5_REP_*`. No sobrescribe registros existentes. Si una clave ya existe pero pertenece a un padre distinto, cancela toda la transacción y muestra un error. **No cambiar ni quitar los marcadores de las descripciones** si se quiere mantener la idempotencia.
+
+## Datos iniciales y relaciones
+
+| Cadena | Cliente (correo) | Vehículo (patente) | Orden (marcador) | Reparación (marcador) |
+|---|---|---|---|---|
+| 1 | `seed.cliente01@example.com` | `SBAB12` (Toyota Yaris) | `SEED_P5_OT_01` | `SEED_P5_REP_01` (diagnóstico; $25.000) |
+| 2 | `seed.cliente02@example.com` | `SBCD34` (Hyundai Accent) | `SEED_P5_OT_02` | `SEED_P5_REP_02` (mantención; $85.000) |
+
+Se utilizan estados `en_reparacion` y `finalizada`, tipos `diagnostico` y `mantencion`, kilometrajes no negativos y fechas de 2025 (no futuras). Todos los campos se validan usando los esquemas Pydantic existentes antes de insertarse. La inserción se realiza en orden y se ejecuta con **una sola sesión y una sola transacción**; `flush()` obtiene los ID para enlazar cada registro, y el `commit` se efectúa al finalizar correctamente.
+
+## Verificación directa de SQLite
+
+Puedes ejecutar los comandos siguientes sin instalar una herramienta SQL adicional:
 
 ```powershell
 uv run python -c "import sqlite3; c=sqlite3.connect('taller_mecanico.db'); print({t:c.execute('SELECT COUNT(*) FROM '+t).fetchone()[0] for t in ('clientes','vehiculos','ordenes_trabajo','reparaciones')}); c.close()"
 ```
 
-En una base nueva se esperan 2 registros de cada entidad. En una base con registros previos, los totales pueden ser mayores; la segunda ejecución debe conservar los conteos y los IDs de las semillas.
+En una base inicialmente vacía: `{'clientes': 2, 'vehiculos': 2, 'ordenes_trabajo': 2, 'reparaciones': 2}`. Con datos preexistentes, las cantidades totales pueden ser superiores a dos.
+
+Para verificar las relaciones por SQL:
+
+```powershell
+uv run python -c "import sqlite3; c=sqlite3.connect('taller_mecanico.db'); q='SELECT c.email, v.patente, o.descripcion_problema, r.descripcion FROM clientes c JOIN vehiculos v ON v.cliente_id=c.id JOIN ordenes_trabajo o ON o.vehiculo_id=v.id JOIN reparaciones r ON r.orden_trabajo_id=o.id WHERE c.email LIKE ? ORDER BY c.email'; print(*c.execute(q, ('seed.cliente%@example.com',)).fetchall(), sep='\n'); c.close()"
+```
+
+Se esperan **dos filas**, una para cada cadena. La opción `--verificar` también comprueba que cada entidad inicial exista y su clave foránea apunte al registro esperado.
+
+## Verificación mediante la API y persistencia
+
+En otra terminal:
+
+```powershell
+uv run uvicorn proyectobackend.main:app --reload
+```
+
+Abrir `http://127.0.0.1:8000/docs`. Los endpoints GET existentes permiten consultar:
+
+- `GET /clientes` (respuesta paginada; campo `items`).
+- `GET /vehiculos/` (lista).
+- `GET /ordenes-trabajo` (respuesta paginada; campo `items`).
+- `GET /reparaciones/` (lista).
+
+Buscar los correos, patentes y marcadores anteriores en las respuestas. Para comprobar persistencia, detener Uvicorn con `Ctrl+C`, volver a iniciar y repetir `--verificar` o los GET. **No borrar `taller_mecanico.db`**, ya que es el archivo que conserva los datos entre reinicios.
+
+## Transacciones y prueba de rollback
+
+Para provocar un fallo controlado y confirmar que no quede una inserción parcial:
+
+```powershell
+uv run python scripts/seed_db.py --probar-rollback
+```
+
+Resultado esperado:
+
+```text
+ROLLBACK EXITOSO: se revirtió el registro temporal tras el fallo intencional.
+```
+
+Esta prueba inicia una transacción, inserta temporalmente un cliente con correo de verificación, hace `flush()`, provoca una excepción interna y comprueba mediante otra sesión que dicho cliente **no fue guardado**. No borra ni modifica los ocho registros iniciales.
+
+Si ocurre un error de validación, duplicidad o relación durante una carga normal, el contexto `SessionLocal.begin()` efectúa automáticamente `rollback`; el proceso devuelve código de salida 1. La excepción se muestra sin URL, contraseñas ni sentencias SQL.
+
+## Alcance de las comprobaciones de desarrollo
+
+En una base local SQLite aislada, con copias de los modelos ORM, esquemas Pydantic y la inicialización de `main`, se ejecutó el script: primera pasada `2/2/2/2`, segunda pasada `0/0/0/0`, consulta independiente de las dos relaciones, verificación tras iniciar un segundo proceso y prueba de rollback exitosa. También se provocó una colisión de patente con un cliente diferente: el script devolvió error y no dejó el cliente insertado antes del fallo. **Las comprobaciones SQLite descritas en este párrafo corresponden a una etapa previa**. La ejecución posterior sobre PostgreSQL aislado y las pruebas HTTP de Reparaciones están registradas a continuación.
+
+## Alcance del seeder
+
+El seeder existente no modifica modelos, repositorios, servicios, routers, esquemas, migraciones, configuración ni dependencias. Las reparaciones se asocian a órdenes existentes, las órdenes a vehículos existentes y los vehículos a clientes existentes. Las mejoras de documentación Swagger del módulo Reparaciones se realizan aparte, sin cambiar su lógica funcional.
 
 ## Evidencias reales de las pruebas (30/10/2026)
 

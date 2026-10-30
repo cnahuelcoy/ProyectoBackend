@@ -1,5 +1,3 @@
-"""Validaciones y ejemplos OpenAPI del módulo de Reparaciones."""
-
 from datetime import date
 from typing import Optional
 
@@ -26,12 +24,12 @@ class ReparacionCreate(BaseModel):
     orden_trabajo_id: int = Field(
         ...,
         gt=0,
-        description="ID positivo de una orden de trabajo existente",
+        description="ID de la orden de trabajo asociada",
     )
     descripcion: str = Field(
         ...,
         min_length=5,
-        description="Descripción de la reparación (mínimo 5 caracteres)",
+        description="Descripción detallada de la reparación",
     )
     tipo: TipoReparacion = Field(
         ...,
@@ -40,11 +38,11 @@ class ReparacionCreate(BaseModel):
     costo: float = Field(
         ...,
         ge=0,
-        description="Costo no negativo de la reparación",
+        description="Costo de la reparación, debe ser mayor o igual a 0",
     )
     fecha: date = Field(
         ...,
-        description="Fecha de la reparación (YYYY-MM-DD); no puede ser futura",
+        description="Fecha de la reparación (formato YYYY-MM-DD)",
     )
 
 
@@ -78,8 +76,8 @@ class ReparacionUpdate(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "descripcion": "Cambio de pastillas y revisión de discos",
-                    "costo": 48000.0,
+                    "descripcion": "Revisión y cambio de pastillas de freno",
+                    "costo": 50000.0,
                 }
             ]
         }
@@ -88,18 +86,10 @@ class ReparacionUpdate(BaseModel):
     descripcion: Optional[str] = Field(
         default=None,
         min_length=5,
-        description="Nueva descripción, si corresponde (mínimo 5 caracteres)",
     )
-    tipo: Optional[TipoReparacion] = Field(
-        default=None,
-        description="Nuevo tipo, si corresponde",
-    )
+    tipo: Optional[TipoReparacion] = None
     costo: Optional[float] = Field(
         default=None,
         ge=0,
-        description="Nuevo costo no negativo, si corresponde",
     )
-    fecha: Optional[date] = Field(
-        default=None,
-        description="Nueva fecha (YYYY-MM-DD); no puede ser futura",
-    )
+    fecha: Optional[date] = None
