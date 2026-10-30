@@ -7,6 +7,20 @@ from proyectobackend.domain.reparacion import TipoReparacion
 
 
 class ReparacionCreate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "orden_trabajo_id": 1,
+                    "descripcion": "Cambio de pastillas de freno",
+                    "tipo": "mantencion",
+                    "costo": 45000.0,
+                    "fecha": "2025-10-07",
+                }
+            ]
+        }
+    )
+
     orden_trabajo_id: int = Field(
         ...,
         gt=0,
@@ -33,7 +47,21 @@ class ReparacionCreate(BaseModel):
 
 
 class ReparacionResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [
+                {
+                    "id": 1,
+                    "orden_trabajo_id": 1,
+                    "descripcion": "Cambio de pastillas de freno",
+                    "tipo": "mantencion",
+                    "costo": 45000.0,
+                    "fecha": "2025-10-07",
+                }
+            ]
+        },
+    )
 
     id: int
     orden_trabajo_id: int
@@ -44,6 +72,17 @@ class ReparacionResponse(BaseModel):
 
 
 class ReparacionUpdate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "descripcion": "Revisión y cambio de pastillas de freno",
+                    "costo": 50000.0,
+                }
+            ]
+        }
+    )
+
     descripcion: Optional[str] = Field(
         default=None,
         min_length=5,
