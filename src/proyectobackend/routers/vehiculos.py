@@ -47,7 +47,10 @@ def _formatear_error(ex: Exception) -> JSONResponse:
     ]:
         status_code = status.HTTP_404_NOT_FOUND
 
-    elif code == "VEHICLE_LICENSE_PLATE_ALREADY_EXISTS":
+    elif code in [
+        "VEHICLE_LICENSE_PLATE_ALREADY_EXISTS",
+        "VEHICLE_HAS_WORK_ORDERS",
+    ]:
         status_code = status.HTTP_409_CONFLICT
 
     respuesta = ErrorResponse(
@@ -133,6 +136,7 @@ def actualizar_vehiculo(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
         404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
     },
 )
 def eliminar_vehiculo(vehiculo_id: int):
@@ -143,5 +147,5 @@ def eliminar_vehiculo(vehiculo_id: int):
             status_code=status.HTTP_204_NO_CONTENT,
         )
 
-    except LookupError as error:
+    except (LookupError, ValueError) as error:
         return _formatear_error(error)

@@ -1,7 +1,9 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from proyectobackend.database.session import SessionLocal
 from proyectobackend.domain.vehiculo import Vehiculo
+from proyectobackend.models.orden_trabajo import OrdenTrabajoModel
 from proyectobackend.models.vehiculo import VehiculoModel
 
 
@@ -94,8 +96,26 @@ class VehiculoRepository:
             if model is None:
                 return False
 
-            session.delete(model)
-            session.commit()
+            orden_asociada = session.scalar(
+                select(OrdenTrabajoModel.id)
+                .where(OrdenTrabajoModel.vehiculo_id == vehiculo_id)
+                .limit(1)
+            )
+
+            mensaje_conflicto = (
+                "VEHICLE_HAS_WORK_ORDERS:"
+                "No se puede eliminar un vehículo con órdenes de trabajo asociadas"
+            )
+
+            if orden_asociada is not None:
+                raise ValueError(mensaje_conflicto)
+
+            try:
+                session.delete(model)
+                session.commit()
+            except IntegrityError as error:
+                session.rollback()
+                raise ValueError(mensaje_conflicto) from error
 
             return True
 
