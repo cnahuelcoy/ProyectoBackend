@@ -1,210 +1,297 @@
-# Parte 5: Pruebas de la API
+# Revisión final de pruebas: Taller Mecánico
 
-Para esta parte preparé nueve pruebas con `unittest`. Cubren clientes y el flujo
-Cliente → Vehículo → Orden de Trabajo → Reparación. Cada prueba usa una SQLite
-temporal y crea los datos que necesita mediante la API.
+Fecha: 30 de octubre de 2026, America/Santiago.
 
-Los archivos son [test_clientes.py](../tests/test_clientes.py),
-[test_integracion.py](../tests/test_integracion.py) y
-[soporte_api.py](../tests/soporte_api.py). No se agregaron dependencias ni se
-cambiaron los módulos de otros integrantes.
+## Estado de la entrega
 
-## Reglas que se revisaron
+**REQUIERE CORRECCIONES.** La suite final ejecutó 42 pruebas: 41 exitosas,
+1 fallida y 0 errores de ejecución. El fallo es el borrado de un vehículo con
+órdenes asociadas: devuelve HTTP 500 en texto plano en lugar de un rechazo JSON.
 
-Los casos se basan en los routers, schemas y services actuales:
+Los cuatro archivos autorizados ya están incorporados al repositorio, siguiendo
+la instrucción del usuario de aplicar los cambios. La rama observada es
+`Matias-Salinas`. Git corresponde exclusivamente al usuario: no se ejecutaron
+comandos Git, commits, push, creación de PR ni merge. La creación de una rama
+nueva desde `main` y la publicación del trabajo quedan pendientes a su cargo.
 
-| Módulo | Validaciones y reglas |
-|---|---|
-| Clientes | Nombre y apellido de 2 a 50 caracteres, teléfono de 8 a 15, dirección de 3 a 100 y email válido. El correo debe ser único; su búsqueda ignora mayúsculas. |
-| Vehículos | Patente única de 6 caracteres, marca y modelo no vacíos, año entre 1886 y 2027, kilometraje no negativo y cliente_id positivo de un cliente existente. |
-| Órdenes | vehiculo_id positivo de un vehículo existente, fecha válida, descripción de al menos 5 caracteres y kilometraje no negativo. Los estados son pendiente, en_reparacion y finalizada. Una orden finalizada no puede volver a un estado anterior. |
-| Reparaciones | orden_trabajo_id positivo de una orden existente, descripción de al menos 5 caracteres y costo no negativo. Los tipos son reparacion, mantencion y diagnostico. La fecha no puede ser futura. |
+## Archivos creados o modificados
 
-El listado de clientes filtra por nombre completo sin distinguir mayúsculas.
-Permite ordenar por id, nombre, apellido o email, en dirección asc o desc.
-La página parte en 1 y el límite permitido va de 1 a 100.
+- `tests/test_revision_final.py`: 33 pruebas nuevas con `unittest`.
+- `tests/soporte_api.py`: URL SQLite absoluta, comprobación del motor y su ruta,
+  claves foráneas activas en cada conexión, evidencia temporal del aislamiento,
+  tipo de contenido de las respuestas y acceso a la URL de la API temporal.
+- `docs/solicitudes.http`: 60 solicitudes encadenadas para los cuatro módulos.
+- `docs/pruebas.md`: resultados, incidencia, instrucciones y límites de la revisión.
 
-Las rutas usadas son `/clientes`, `/vehiculos/`, `/ordenes-trabajo` y
-`/reparaciones/`. Para consultar un registro se agrega su ID a la ruta.
-También se usa `PATCH /clientes/{id}` para la actualización.
+Las nueve pruebas originales permanecen sin cambios. No se modifica código de
+Clientes, Vehículos, Reparaciones u Órdenes de Trabajo, configuración de
+producción, migraciones ni reglas de negocio. No se agregan dependencias,
+credenciales, archivos `.env` ni bases de datos.
 
-## Cómo ejecutar las pruebas
+## Ejecuciones y resultados reales
 
-Se necesita Python 3.13 o superior y las dependencias del proyecto.
-Si aún no está preparado el entorno, ejecutar desde la raíz:
-
-```bash
-uv sync --frozen
-```
-
-Para correr las nueve pruebas:
+La primera ejecución se realizó en el repositorio con el soporte original:
 
 ```bash
-.venv/bin/python -B -m unittest discover -s tests -t . -v
+env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m unittest discover -s tests -t . -v
 ```
 
-En Windows, usando uv:
-
-```powershell
-uv run python -B -m unittest discover -s tests -t . -v
-```
-
-El 28 de octubre de 2026 la ejecución local terminó con este resultado,
-mostrado en la captura de la terminal:
+El entorno restringido bloqueó la creación de sockets; ningún endpoint llegó
+a ejecutarse en ese intento:
 
 ```text
-Ran 9 tests in 12.780s
+PermissionError: [Errno 1] Operation not permitted
+Ran 9 tests in 1.078s
+FAILED (errors=9)
+```
 
+Se repitió el mismo comando con acceso a sockets de `127.0.0.1`:
+
+```text
+Ran 9 tests in 6.871s
 OK
 ```
 
-Después de fijar `DATABASE_URL`, se repitieron las nueve pruebas en Linux:
-terminaron con `OK` en 12.692 segundos.
+Primera ejecución ampliada, desde `/tmp/taller-qa-yskVcd`:
 
-Los nueve casos pasaron. La tabla siguiente resume lo comprobado por sus
-aserciones. Los IDs se toman de las respuestas de la API; no se usan IDs fijos
-para los registros creados. El tiempo puede cambiar en otra ejecución.
-
-## Resultados
-
-| Caso y objetivo | Resultado esperado | Resultado obtenido | Estado |
-|---|---|---|---|
-| P01: crear un cliente | POST 201, ID entero positivo y datos iguales a los enviados. | HTTP 201; el cliente Ana Perez recibió un ID positivo y conservó sus datos. | Aprobado |
-| P02: consultar un cliente | GET 200 y el mismo registro creado para el caso. | HTTP 200; la respuesta coincidió con el cliente Luis Soto creado antes de consultar. | Aprobado |
-| P03: actualizar un cliente | PATCH 200 y GET 200, con teléfono y dirección nuevos y los demás campos iguales. | Ambos respondieron 200; se guardaron los cambios de Carla Rojas y se conservaron los demás campos. | Aprobado |
-| P04: consultar un ID inexistente | GET 404, código CLIENT_NOT_FOUND y mensaje Cliente no encontrado. | HTTP 404; coincidieron el código y el mensaje. | Aprobado |
-| P05: repetir un correo | Segundo POST 409, código CLIENT_EMAIL_ALREADY_EXISTS y un solo cliente guardado. | HTTP 409; el GET posterior respondió 200 y mostró únicamente el cliente original. | Aprobado |
-| P06: enviar un email inválido | POST 422, código VALIDATION_ERROR con detalle en email y ningún registro guardado. | HTTP 422; coincidieron el mensaje y el campo del error. El GET respondió 200 con total=0 e items=[]. | Aprobado |
-| P07: filtrar, ordenar y paginar | Dos GET 200, apellidos en el orden indicado y metadatos correctos en ambas páginas. | Ambos respondieron 200; coincidieron todos los registros, total=4, pagina, limite=2 y total_paginas=2. | Aprobado |
-| P08: comprobar persistencia | Un proceso nuevo sobre la misma SQLite y cuatro GET 200 con los registros anteriores al reinicio. | Cambió el PID, se conservó el archivo y los cuatro GET respondieron 200 con los mismos datos e IDs. | Aprobado |
-| P09: comprobar las relaciones | Cuatro GET 200 y coincidencia de los IDs de cliente, vehículo y orden asociados. | Los cuatro GET respondieron 200 y las tres relaciones coincidieron. | Aprobado |
-
-Todas las creaciones válidas de preparación comprueban HTTP 201. P07 crea seis
-clientes; P08 y P09 crean un registro de cada módulo. La última ejecución no
-presentó fallos.
-
-## Datos usados en cada caso
-
-Para P01, P02, P03, P05 y P06 se envían estos cuerpos a `POST /clientes`:
-
-| Caso | nombre | apellido | telefono | email | direccion |
-|---|---|---|---|---|---|
-| P01 | Ana | Perez | 912345678 | ana.pruebas@example.com | Calle Pruebas 123 |
-| P02 | Luis | Soto | 923456789 | luis.pruebas@example.com | Calle Pruebas 456 |
-| P03 | Carla | Rojas | 934567890 | carla.pruebas@example.com | Calle Pruebas 789 |
-| P05 | Pedro | Munoz | 956789012 | pedro.pruebas@example.com | Calle Pruebas 101 |
-| P06 | Elena | Diaz | 967890123 | correo-invalido | Calle Pruebas 202 |
-
-P01 revisa la respuesta de creación. P02 consulta `GET /clientes/{id}`.
-P03 envía este cambio a `PATCH /clientes/{id}` y luego consulta el cliente:
-
-```json
-{
-  "telefono": "945678901",
-  "direccion": "Avenida Taller 100"
-}
+```bash
+env PYTHONDONTWRITEBYTECODE=1 /home/matias/Documentos/GitHub/ProyectoBackend/.venv/bin/python -B -m unittest discover -s tests -t . -v
 ```
-
-P04 consulta `GET /clientes/999999` en una base vacía.
-
-P05 repite exactamente el mismo POST de Pedro Munoz. El mensaje esperado y
-obtenido es `Ya existe un cliente registrado con este correo`. Después consulta
-el listado y comprueba que solo esté el cliente original.
-
-P06 usa `correo-invalido`. El mensaje esperado y obtenido es
-`Los datos de la solicitud no son válidos`, con un detalle cuya `loc` sea
-`["body", "email"]`. Después consulta el listado para comprobar que siga vacío.
-
-### P07: listado
-
-Se crean estos seis clientes. Todos usan teléfono `972345678` y dirección
-`Calle Listado 100`:
-
-| nombre | apellido | email |
-|---|---|---|
-| Ana | Zulu | ana.zulu@example.com |
-| Luis | Perez | luis.perez@example.com |
-| Ana | Bravo | ana.bravo@example.com |
-| ANA | Alba | ana.alba@example.com |
-| Ana | Mora | ana.mora@example.com |
-| Anabel | Abarca | anabel.abarca@example.com |
-
-Se hacen las dos consultas:
 
 ```text
-GET /clientes?nombre=ana&ordenar_por=apellido&direccion=desc&pagina=1&limite=2
-GET /clientes?nombre=ana&ordenar_por=apellido&direccion=desc&pagina=2&limite=2
+Ran 42 tests in 30.500s
+FAILED (failures=1)
 ```
 
-El filtro debe incluir Ana y ANA, y dejar fuera a Luis y Anabel. Estos fueron
-los valores esperados y obtenidos:
+En esa ejecución apareció un `ResourceWarning` por una conexión SQLite de la
+prueba SQL que no se cerraba. Se corrigió usando `contextlib.closing` en las
+pruebas. La verificación final ya no presenta esa advertencia.
 
-| Página | Apellidos, en orden | total | pagina | limite | total_paginas |
-|---|---|---|---|---|---|
-| 1 | Zulu, Mora | 4 | 1 | 2 | 2 |
-| 2 | Bravo, Alba | 4 | 2 | 2 | 2 |
+Verificación final, desde la misma carpeta temporal:
 
-La prueba compara la respuesta completa, incluidos todos los campos de cada
-cliente y los metadatos.
+```bash
+env PYTHONDONTWRITEBYTECODE=1 /home/matias/Documentos/GitHub/ProyectoBackend/.venv/bin/python -B -W error::ResourceWarning -m unittest discover -s tests -t . -v > /tmp/taller-qa-yskVcd/resultados_unittest.log 2>&1
+```
 
-### P08 y P09: persistencia y relaciones
-
-Cada caso crea su propia cadena con estos datos:
-
-| Recurso | POST | Datos |
-|---|---|---|
-| Cliente | /clientes | nombre=Marta; apellido=Torres; telefono=978901234; email=marta.integracion@example.com; direccion=Calle Integracion 303 |
-| Vehículo | /vehiculos/ | patente=TEST01; marca=Toyota; modelo=Yaris; anio=2020; kilometraje=120000; cliente_id=ID recibido al crear el cliente |
-| Orden | /ordenes-trabajo | vehiculo_id=ID recibido al crear el vehículo; fecha_ingreso=2024-01-10; descripcion_problema=Revisar frenos del vehiculo; estado=pendiente; kilometraje_ingreso=120000 |
-| Reparación | /reparaciones/ | orden_trabajo_id=ID recibido al crear la orden; descripcion=Cambio de pastillas de freno; tipo=mantencion; costo=45000.0; fecha=2024-01-11 |
-
-P08 guarda el PID y la ruta de la base. Después detiene la API, espera su salida
-y la vuelve a iniciar en la misma carpeta. Comprueba que el PID cambie y consulta
-los cuatro registros por ID. Todos deben responder 200 y conservar sus datos,
-sin volver a crearlos después del reinicio.
-
-P09 consulta los cuatro registros por ID y compara sus datos con los creados.
-También comprueba estas relaciones en las respuestas:
+Salida real relevante:
 
 ```text
-vehiculo.cliente_id == cliente.id
-orden.vehiculo_id == vehiculo.id
-reparacion.orden_trabajo_id == orden.id
+AssertionError: 500 != 409 : {'endpoint': '/vehiculos/1', 'entrada': None, 'HTTP_esperado': 409, 'HTTP_obtenido': 500, 'content_type': 'text/plain', 'respuesta': 'Internal Server Error'}
+Ran 42 tests in 30.818s
+FAILED (failures=1)
 ```
 
-## Cómo repetir un solo caso
+El código de salida es 1 por el fallo real detectado. No se marca como
+`expectedFailure` ni se cambia la expectativa para ocultarlo. Las nueve pruebas
+originales también pasan con las claves foráneas activas. Los `subTest` verifican
+variantes adicionales; no se cuentan como pruebas independientes.
 
-Desde la raíz del proyecto, usar el comando correspondiente:
+Para ejecutar la suite desde la raíz del repositorio:
 
-| Caso | Comando |
+```bash
+env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -W error::ResourceWarning -m unittest discover -s tests -t . -v
+```
+
+En Windows, con las dependencias instaladas:
+
+```powershell
+uv run --no-sync python -B -W error::ResourceWarning -m unittest discover -s tests -t . -v
+```
+
+### Verificación definitiva en el repositorio
+
+Después de incorporar los cuatro archivos se ejecutó, desde
+`/home/matias/Documentos/GitHub/ProyectoBackend`:
+
+```bash
+env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -W error::ResourceWarning -m unittest discover -s tests -t . -v > /tmp/taller-qa-yskVcd/resultados_unittest_repositorio.log 2>&1
+```
+
+Resultado real:
+
+```text
+FAIL: test_delete_vehiculo_con_ordenes_409_json_conserva_cadena
+AssertionError: 500 != 409 : {'endpoint': '/vehiculos/1', 'entrada': None, 'HTTP_esperado': 409, 'HTTP_obtenido': 500, 'content_type': 'text/plain', 'respuesta': 'Internal Server Error'}
+Ran 42 tests in 47.562s
+FAILED (failures=1)
+```
+
+Resumen de esta ejecución: 9 pruebas originales exitosas y 32 de las 33 nuevas
+exitosas; total 41 exitosas, 1 fallida y 0 errores de ejecución. Sin advertencias
+`ResourceWarning`. Código de salida: 1. Los intentos y repeticiones anteriores
+no representan casos adicionales; la suite contiene 42 pruebas distintas.
+
+## Las 33 pruebas nuevas
+
+Todos los casos de esta tabla pasaron salvo QA08. Los nombres completos de
+los métodos están en `tests/test_revision_final.py` y en el registro de ejecución.
+
+| Caso | Qué verifica |
 |---|---|
-| P01 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_crear_cliente_exitosamente -v` |
-| P02 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_obtener_cliente_existente -v` |
-| P03 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_actualizar_cliente_existente -v` |
-| P04 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_obtener_cliente_inexistente_devuelve_404 -v` |
-| P05 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_crear_cliente_con_email_duplicado_devuelve_409 -v` |
-| P06 | `.venv/bin/python -B -m unittest tests.test_clientes.TestClientes.test_crear_cliente_con_email_invalido_devuelve_422 -v` |
-| P07 | `.venv/bin/python -B -m unittest tests.test_integracion.TestIntegracion.test_listado_con_filtro_orden_y_paginacion -v` |
-| P08 | `.venv/bin/python -B -m unittest tests.test_integracion.TestIntegracion.test_persistencia_de_los_cuatro_modulos_tras_reinicio -v` |
-| P09 | `.venv/bin/python -B -m unittest tests.test_integracion.TestIntegracion.test_relacion_cliente_vehiculo_orden_reparacion -v` |
+| QA01 | DELETE de cliente existente: 204 sin cuerpo; GET y segundo DELETE: 404. |
+| QA02 | DELETE de vehículo sin órdenes: 204; el cliente permanece. |
+| QA03 | DELETE de reparación existente: 204; la orden permanece. |
+| QA04 | DELETE de cliente inexistente: 404 con JSON controlado. |
+| QA05 | DELETE de vehículo inexistente: 404 con JSON controlado. |
+| QA06 | DELETE de reparación inexistente: 404 con JSON controlado. |
+| QA07 | DELETE de cliente con vehículo: 409 y relación conservada. |
+| QA08 | DELETE de vehículo con orden: se espera 409 JSON y cadena conservada. FALLA: devuelve 500, text/plain. |
+| QA09 | Reabrir orden finalizada a pendiente: 409, sin guardar otros campos enviados. |
+| QA10 | Reabrir orden finalizada a en_reparacion: 409 y estado conservado. |
+| QA11 | PATCH válido de orden: 200, cambios persistidos y otros campos conservados. |
+| QA12 | Listado de órdenes: filtro por estado, orden por fecha y dos páginas con metadatos. |
+| QA13 | GET y PATCH de orden inexistente: 404 con WORK_ORDER_NOT_FOUND. |
+| QA14 | POST de vehículo con cliente inexistente: 404 JSON. |
+| QA15 | POST de orden con vehículo inexistente: 404 JSON. |
+| QA16 | POST de reparación con orden inexistente: 404 JSON. |
+| QA17 | PATCH de orden con vehículo inexistente: 404 sin modificar estado ni relación. |
+| QA18 | Patente duplicada: 409 y un único vehículo guardado. |
+| QA19 | POST de cliente: nombre, apellido, teléfono, email y dirección inválidos: 422 sin insertar. |
+| QA20 | POST de vehículo: patente, marca, modelo, año, kilometraje e ID inválidos: 422 sin insertar. |
+| QA21 | POST de orden: ID, fecha, descripción corta o en blanco, estado y kilometraje inválidos: 422 sin insertar. |
+| QA22 | POST de reparación: ID, descripción, tipo, costo y fecha inválidos: 422 sin insertar. |
+| QA23 | PATCH inválido de cliente: 422 sin modificar el registro. |
+| QA24 | PATCH inválido de vehículo: 422 sin modificar el registro. |
+| QA25 | PATCH inválido de orden: 422 sin modificar el registro. |
+| QA26 | PATCH inválido de reparación: 422 sin modificar el registro. |
+| QA27 | POST sin campos obligatorios: 422 en los cuatro módulos. |
+| QA28 | GET con ID no numérico: 422 en los cuatro módulos. |
+| QA29 | Listados de Clientes y Órdenes: página, límite, ordenamiento y dirección inválidos: 422. |
+| QA30 | POST de reparación con fecha futura: 400 JSON, conservando la regla existente. |
+| QA31 | PATCH de reparación con fecha futura: 400 JSON sin modificar el registro. |
+| QA32 | Actualizar las cuatro entidades, reiniciar la API y comprobar datos, JOIN SQL y ausencia de referencias huérfanas. |
+| QA33 | Sobrescribir URL PostgreSQL ficticia, comprobar SQLite con FK activas, aislamiento entre APIs y limpieza temporal. |
 
-En cada ejecución individual se espera una prueba y `OK`.
+## Endpoints comprobados
 
-## Preparación y limpieza de los datos
+Estos resultados describen exclusivamente los escenarios ejecutados:
 
-Antes de cada prueba, `setUp()` crea una carpeta temporal y arranca allí la API.
-La ruta `sqlite:///./taller_mecanico.db` hace que SQLite se guarde dentro de esa
-carpeta. El arranque normal crea las tablas y cada caso prepara sus registros
-mediante POST. No se usan seeders ni migraciones pendientes.
+| Módulo | Resultados observados |
+|---|---|
+| Clientes | POST 201; GET y PATCH 200; DELETE sin vehículos 204; inexistentes 404; duplicado y borrado con vehículos 409; entradas inválidas 422. |
+| Vehículos | POST 201; GET y PATCH 200; DELETE sin órdenes 204; inexistentes 404; patente duplicada 409; entradas inválidas 422. DELETE con órdenes: 500 en texto plano. |
+| Órdenes | POST 201; GET, listado y PATCH 200; referencias inexistentes 404; reapertura de finalizada a pendiente o en_reparacion 409; entradas inválidas 422. No ofrece DELETE. |
+| Reparaciones | POST 201; GET y PATCH 200; DELETE 204; inexistentes o referencia inexistente 404; fecha futura 400; entradas inválidas 422. |
 
-Cada caso empieza con su propia base vacía. `addCleanup(self.api.cerrar)` cierra
-el proceso y elimina la carpeta con la base y sus archivos, aunque falle una
-aserción. No hay que borrar registros de la base real.
+Los errores esperados que pasaron incluyen `Content-Type: application/json` y un
+objeto `error` con `code`, `message` y `details`. Los DELETE 204 no incluyen cuerpo.
+El fallo de Vehículos devuelve `text/plain` y `Internal Server Error`.
 
-En P08 la carpeta se conserva durante el reinicio y se elimina al terminar la
-prueba.
+## Incidencia para el responsable de Vehículos
 
-Si una prueba futura falla, se debe guardar la salida y anotar la entrada, el
-resultado esperado, el obtenido, el estado HTTP y el archivo responsable. Si el
-problema está en otro módulo, se propone la corrección para revisarla con su
-integrante.
+- Endpoint: `DELETE /vehiculos/1` en una base temporal recién creada.
+- Entrada del DELETE: sin cuerpo; el ID procede de la respuesta de creación.
+- Preparación: cliente Ana Pruebas, teléfono `912345678`, email
+  `ana.revision@example.com`, dirección `Calle QA 123`; vehículo `QA0001`, Toyota
+  Yaris, año 2020, kilometraje 120000, asociado al cliente; orden pendiente del
+  vehículo con fecha `2024-01-10`, descripción `Revisar los frenos` y kilometraje
+  de ingreso 120000; reparación `Cambio de pastillas`, tipo `mantencion`, costo
+  45000 y fecha `2024-01-11`, asociada a la orden.
+- Esperado: HTTP 409 con JSON controlado y conservación de los registros.
+- Obtenido: HTTP 500, `Content-Type: text/plain`, cuerpo `Internal Server Error`.
+- Integridad: los GET de cliente, vehículo, orden y reparación conservan los
+  mismos registros después del intento y responden 200.
+- Evidencia del servidor: `sqlite3.IntegrityError: FOREIGN KEY constraint failed`,
+  propagado como `sqlalchemy.exc.IntegrityError` al ejecutar
+  `DELETE FROM vehiculos WHERE vehiculos.id = ?`.
+- Causa: el repositorio elimina y confirma sin comprobar órdenes; el servicio
+  tampoco las comprueba y el router solo captura `LookupError`. La excepción de
+  integridad no se transforma en una respuesta HTTP de negocio.
+- El contrato esperado es 409; no se inventa un código de error nuevo.
+- Alcance: reproducido con SQLite temporal y FK activas. PostgreSQL no se ejecutó.
+- Corrección propuesta al responsable: impedir el borrado con órdenes y devolver
+  un conflicto JSON controlado. Este módulo permanece sin modificaciones.
+
+## Ejecutar el archivo HTTP sin tocar datos reales
+
+El archivo contiene 60 solicitudes para los cuatro módulos, con éxitos, errores
+400, 404, 409 y 422, y el caso de regresión que devuelve 500. Los comentarios
+`Esperado` expresan expectativas, no resultados aprobados.
+
+Desde la raíz del repositorio, iniciar la API aislada:
+
+```bash
+.venv/bin/python -B - <<'PY'
+from threading import Event
+from tests.soporte_api import ApiDePrueba
+
+with ApiDePrueba() as api:
+    print(f"@baseUrl = {api.url}", flush=True)
+    print("API temporal lista. Ctrl+C para detener y eliminar sus datos.", flush=True)
+    try:
+        Event().wait()
+    except KeyboardInterrupt:
+        pass
+PY
+```
+
+Abrir `docs/solicitudes.http` con [REST Client de VS Code](https://github.com/Huachao/vscode-restclient#usage).
+Copiar la línea `@baseUrl` impresa por ese proceso temporal. Enviar las solicitudes
+01 a 60 en orden con `Send Request`. Los IDs se extraen de las respuestas de
+creación mediante [variables de solicitud](https://github.com/Huachao/vscode-restclient#request-variables).
+El puerto 1 inicial es un marcador; no reemplazarlo por la API Docker con datos
+reales. Reiniciar la API temporal antes de repetir el archivo completo.
+
+Se reprodujeron las 60 solicitudes con un verificador temporal que lee el archivo,
+resuelve las variables y llama a la API aislada. Se verificó primero la copia
+temporal y después el archivo incorporado al repositorio. Comando de esta última
+verificación, ejecutado desde la raíz del repositorio:
+
+```bash
+env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B /tmp/taller-qa-yskVcd/verificar_http.py /home/matias/Documentos/GitHub/ProyectoBackend > /tmp/taller-qa-yskVcd/resultados_http_repositorio.log 2>&1
+```
+
+```text
+vehiculoConOrden: esperado=409 obtenido=500 FALLO
+Solicitudes: 60; correctas: 59; fallidas: 1
+```
+
+También se comprobó JSON de errores, cuerpo vacío en 204 y conservación del
+estado finalizada tras los rechazos. No se ejecutó la interfaz gráfica de la
+extensión. El verificador y sus resultados permanecen en `/tmp`; la reproducción
+entregada en el repositorio es el archivo `.http` y las instrucciones anteriores.
+Código de salida: 1 por la misma incidencia de Vehículos. Estas 60 solicitudes
+no se suman a los 42 casos de `unittest`.
+
+## Aislamiento y PostgreSQL
+
+Cada prueba crea su carpeta con `TemporaryDirectory`, fija una URL SQLite
+absoluta y reemplaza `PYTHONPATH` por el `src` correspondiente. Antes de abrir la
+base, el subproceso verifica el motor y la ruta. Un listener activa y comprueba
+las claves foráneas en cada conexión. `aislamiento.json` registra el motor, la
+ruta y `claves_foraneas=1` dentro de esa carpeta temporal.
+
+QA33 parte con una URL PostgreSQL ficticia sin credenciales y comprueba su
+sustitución por SQLite, la independencia entre dos APIs y la eliminación de la
+carpeta al cerrar. QA32 abre SQLite con `mode=ro`, verifica las relaciones por
+JOIN y ejecuta `PRAGMA foreign_key_check` sin encontrar referencias huérfanas.
+
+No se leen `.env`, no se conecta a PostgreSQL, no se arrancan contenedores ni se
+ejecutan migraciones o seeders. Se verificó el aislamiento de las pruebas; no se
+hizo una comparación antes/después de los datos reales de PostgreSQL. Esta
+revisión no acredita compatibilidad completa con PostgreSQL o Docker.
+
+Además, se compararon huellas SHA-256 antes y después de la ejecución: el archivo
+SQLite local preexistente permaneció idéntico. El código de todos los módulos de
+la API, las nueve pruebas originales, `pyproject.toml` y `uv.lock` también
+conservan sus huellas originales. Los únicos archivos existentes modificados
+son `tests/soporte_api.py` y `docs/pruebas.md`; los otros dos son nuevos.
+
+## Pendientes de Git
+
+Git corresponde exclusivamente al usuario. La rama observada al aplicar los
+archivos es `Matias-Salinas`. Queda pendiente gestionar la rama nueva desde
+`main`, realizar commits claros, publicar la rama y crear el Pull Request hacia
+`main`. La base de la rama no se verificó mediante Git. No se han creado commits
+durante esta revisión y no existe un enlace de PR para informar.
+
+Mensajes sugeridos, todavía no ejecutados:
+
+- `test: ampliar regresiones HTTP y reforzar aislamiento SQLite`
+- `docs: agregar solicitudes reproducibles e informe QA final`
+
+No se debe hacer merge automático.
+
+**REQUIERE CORRECCIONES:** el borrado de un vehículo con órdenes devuelve un 500
+inesperado sin JSON controlado. Las nueve pruebas originales y las otras 32
+pruebas nuevas pasan, pero ese fallo impide aprobar la revisión.

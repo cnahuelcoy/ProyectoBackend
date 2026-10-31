@@ -12,9 +12,46 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 
 _ARRANQUE_API = """
+import json
 from pathlib import Path
 import socket
 import uvicorn
+from sqlalchemy import event
+
+from proyectobackend.database.session import engine
+
+base_esperada = Path("taller_mecanico.db").resolve()
+if engine.dialect.name != "sqlite":
+    raise RuntimeError("Las pruebas solo pueden usar SQLite temporal")
+if Path(engine.url.database).resolve() != base_esperada:
+    raise RuntimeError("La base de pruebas debe estar en la carpeta temporal")
+
+
+@event.listens_for(engine, "connect")
+def activar_claves_foraneas(conexion_dbapi, registro):
+    cursor = conexion_dbapi.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys = ON")
+        cursor.execute("PRAGMA foreign_keys")
+        if cursor.fetchone()[0] != 1:
+            raise RuntimeError("No se pudieron activar las claves foráneas")
+    finally:
+        cursor.close()
+
+
+with engine.connect() as conexion_bd:
+    claves_foraneas = conexion_bd.exec_driver_sql("PRAGMA foreign_keys").scalar()
+    if claves_foraneas != 1:
+        raise RuntimeError("Las claves foráneas deben estar activas")
+
+Path("aislamiento.json").write_text(
+    json.dumps({
+        "dialecto": engine.dialect.name,
+        "base_de_datos": str(base_esperada),
+        "claves_foraneas": claves_foraneas,
+    }),
+    encoding="utf-8",
+)
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conexion:
     conexion.bind(("127.0.0.1", 0))
@@ -43,8 +80,15 @@ class ApiDePrueba:
         self._proceso: subprocess.Popen | None = None
         self._url: str | None = None
         self._cerrada = False
+        self.ultimo_content_type: str | None = None
 
         self._http = build_opener(ProxyHandler({}))
+
+    @property
+    def url(self) -> str:
+        if self._url is None:
+            raise RuntimeError("Primero debes iniciar la API de prueba")
+        return self._url
 
     @property
     def pid(self) -> int | None:
@@ -63,13 +107,8 @@ class ApiDePrueba:
         raiz = Path(__file__).resolve().parents[1]
 
         entorno = os.environ.copy()
-        entorno["DATABASE_URL"] = "sqlite:///./taller_mecanico.db"
-        rutas = [str(raiz / "src")]
-
-        if entorno.get("PYTHONPATH"):
-            rutas.append(entorno["PYTHONPATH"])
-
-        entorno["PYTHONPATH"] = os.pathsep.join(rutas)
+        entorno["DATABASE_URL"] = f"sqlite:///{self.base_de_datos.resolve()}"
+        entorno["PYTHONPATH"] = str(raiz / "src")
         entorno["PYTHONDONTWRITEBYTECODE"] = "1"
 
         archivo_puerto = self.directorio / "puerto.txt"
@@ -186,6 +225,7 @@ class ApiDePrueba:
 
         with respuesta:
             estado = respuesta.code
+            self.ultimo_content_type = respuesta.headers.get_content_type()
             cuerpo = respuesta.read().decode("utf-8")
 
         if not cuerpo:
