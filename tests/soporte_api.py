@@ -1,5 +1,5 @@
 import json
-import os 
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -76,7 +76,7 @@ class ApiDePrueba:
         self._temporal = TemporaryDirectory(prefix="parte5-api")
         self.directorio = Path(self._temporal.name)
         self.base_de_datos = self.directorio / "taller_mecanico.db"
-       
+
         self._proceso: subprocess.Popen | None = None
         self._url: str | None = None
         self._cerrada = False
@@ -94,18 +94,15 @@ class ApiDePrueba:
     def pid(self) -> int | None:
         if self._proceso is None:
             return None
-
         return self._proceso.pid
 
     def iniciar(self, tiempo_espera: float = 15) -> None:
         if self._cerrada:
-            raise RuntimeError("Esta APi de prueba ya fue limpiada")
-
+            raise RuntimeError("Esta API de prueba ya fue limpiada")
         if self._proceso is not None:
             raise RuntimeError("Detén la API antes de volver a iniciarla")
-        
-        raiz = Path(__file__).resolve().parents[1]
 
+        raiz = Path(__file__).resolve().parents[1]
         entorno = os.environ.copy()
         entorno["DATABASE_URL"] = f"sqlite:///{self.base_de_datos.resolve()}"
         entorno["PYTHONPATH"] = str(raiz / "src")
@@ -113,7 +110,6 @@ class ApiDePrueba:
 
         archivo_puerto = self.directorio / "puerto.txt"
         archivo_puerto.unlink(missing_ok=True)
-
         registro = self.directorio / "api.log"
 
         with registro.open("ab") as salida:
@@ -128,43 +124,28 @@ class ApiDePrueba:
 
         try:
             vencimiento = time.monotonic() + tiempo_espera
-
             while time.monotonic() < vencimiento:
                 if self._proceso.poll() is not None:
                     break
 
                 try:
-                    puerto = int(
-                        archivo_puerto.read_text(encoding="utf-8")
-                    )
-
+                    puerto = int(archivo_puerto.read_text(encoding="utf-8"))
                     self._url = f"http://127.0.0.1:{puerto}"
 
                     estado, cuerpo = self.solicitar(
-                        "GET",
-                        "/",
-                        timeout=0.5,
+                        "GET", "/", timeout=0.5
                     )
-
                     if estado == 200 and cuerpo == {
                         "mensaje": "API Taller Mecánico funcionando"
                     }:
                         return
-
                 except (OSError, ValueError):
-                    # El servidor puede no estar listo todavía.
                     pass
 
                 time.sleep(0.05)
 
-            detalle = registro.read_text(
-                encoding="utf-8",
-                errors="replace",
-            )
-
-            raise RuntimeError(
-                f"La API no pudo arrancar. Registro:\n{detalle}"
-            )
+            detalle = registro.read_text(encoding="utf-8", errors="replace")
+            raise RuntimeError(f"La API no pudo arrancar. Registro:\n{detalle}")
 
         except BaseException:
             self.detener()
@@ -179,30 +160,19 @@ class ApiDePrueba:
         timeout: float = 5,
     ) -> tuple[int, Any]:
         if self._url is None or self._proceso is None:
-            raise RuntimeError("primero debes iniciar a la API de prueba")
-
+            raise RuntimeError("Primero debes iniciar la API de prueba")
         if self._proceso.poll() is not None:
-            raise RuntimeError(
-                "El proceso de la API de prueba se ha detenido"
-            )
-
+            raise RuntimeError("El proceso de la API de prueba se ha detenido")
         if not ruta.startswith("/"):
             raise ValueError("La ruta debe comenzar con /")
 
         url = self._url + ruta
-
         if parametros:
             separador = "&" if "?" in ruta else "?"
             url += separador + urlencode(parametros)
 
-        contenido = (
-            None
-            if datos is None
-            else json.dumps(datos).encode("utf-8")
-        )
-
+        contenido = None if datos is None else json.dumps(datos).encode("utf-8")
         cabeceras = {"Accept": "application/json"}
-
         if contenido is not None:
             cabeceras["Content-Type"] = "application/json"
 
@@ -214,13 +184,8 @@ class ApiDePrueba:
         )
 
         try:
-            respuesta = self._http.open(
-                peticion,
-                timeout=timeout,
-            )
-
+            respuesta = self._http.open(peticion, timeout=timeout)
         except HTTPError as error:
-            # Los estados 404, 409 y 422 también deben comprobarse.
             respuesta = error
 
         with respuesta:
@@ -233,54 +198,67 @@ class ApiDePrueba:
 
         try:
             return estado, json.loads(cuerpo)
-
         except json.JSONDecodeError:
             return estado, cuerpo
 
     def detener(self) -> None:
-        """Cierra la API y conserva la base para poder reiniciarla."""
+        """Detiene el servidor y conserva la SQLite para poder reiniciar."""
         if self._proceso is not None:
-            if self._proceso.poll() is None:
-                self._proceso.terminate()
-
+            proceso = self._proceso
+            if proceso.poll() is None:
+                proceso.terminate()
                 try:
-                    self._proceso.wait(timeout=5)
-
+                    proceso.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    self._proceso.kill()
-                    self._proceso.wait(timeout=5)
+                    proceso.kill()
+                    proceso.wait(timeout=5)
+            else:
+                proceso.wait()
 
             self._proceso = None
 
         self._url = None
 
     def reiniciar(self) -> None:
-        """Abre otro proceso usando la misma SQLite temporal."""
+        """Inicia otro proceso usando la misma SQLite temporal."""
         self.detener()
         self.iniciar()
 
     def cerrar(self) -> None:
-        """Cierra la API y elimina todos los archivos temporales."""
-        if not self._cerrada:
-            self.detener()
-            self._temporal.cleanup()
-            self._cerrada = True
+        """Detiene la API y elimina sus archivos, reintentando bloqueos de Windows.
+
+        No ignora errores persistentes: si otro proceso conserva abierto
+        api.log o taller_mecanico.db, la limpieza finalmente falla de forma
+        visible para que la prueba no se marque como exitosa por error.
+        """
+        if self._cerrada:
+            return
+
+        self.detener()
+
+        intentos = 20
+        for intento in range(intentos):
+            try:
+                self._temporal.cleanup()
+                self._cerrada = True
+                return
+            except PermissionError as error:
+                if (
+                    os.name != "nt"
+                    or getattr(error, "winerror", None) != 32
+                    or intento == intentos - 1
+                ):
+                    raise
+
+                time.sleep(0.25)
 
     def __enter__(self) -> "ApiDePrueba":
         try:
             self.iniciar()
-
         except BaseException:
             self.cerrar()
             raise
-
         return self
 
     def __exit__(self, tipo, valor, traza) -> None:
         self.cerrar()
-        
-
-
-    
-        
-
