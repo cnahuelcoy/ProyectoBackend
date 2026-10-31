@@ -1,12 +1,15 @@
-# Taller Mecanico: ejecutar en orden con REST Client de VS Code.
-# Usar exclusivamente la API temporal descrita en docs/pruebas.md.
-# Reemplazar baseUrl por el valor que imprime ese proceso temporal.
-# El puerto 1 es un marcador sin API; no apuntar a la API Docker con datos reales.
-# Reiniciar la API temporal antes de repetir el archivo completo.
-# Los IDs se extraen de respuestas nombradas; no se asumen IDs de creacion.
-# Las respuestas 204 no deben incluir cuerpo; los errores deben ser JSON.
-# Ordenes de Trabajo no ofrece DELETE: no se agrega una regla de negocio nueva.
-# Un 409 en vehiculoConOrden expresa el contrato esperado, no un resultado aprobado.
+
+# Taller Mecánico | Solicitudes de prueba para REST Client (VS Code)
+#
+# Preparación: iniciar la API SQLite temporal indicada en docs/pruebas.md.
+# Sustituir @baseUrl por la dirección local impresa en la terminal.
+# El puerto 1 es un marcador de seguridad: NO apunta al backend real.
+# Enviar las 60 solicitudes de arriba hacia abajo mediante "Send Request".
+# Los ID se obtienen de las respuestas previas; no hay ID fijos.
+# Los comentarios "Esperado" son una guía, no aserciones automáticas.
+# En 204 la respuesta no debe tener cuerpo; en 400/404/409/422 el error debe ser JSON.
+# No usar Docker ni PostgreSQL compartido para reproducir esta colección.
+# Órdenes de Trabajo no ofrece DELETE.
 
 @baseUrl = http://127.0.0.1:1
 @idInexistente = 999999
@@ -17,13 +20,23 @@
 @clienteBorrableId = {{crearClienteBorrable.response.body.$.id}}
 @vehiculoBorrableId = {{crearVehiculoBorrable.response.body.$.id}}
 
-### 01. API temporal disponible
+
+# ------------------------------------------------------------------
+# INICIO | Comprobación de disponibilidad
+# ------------------------------------------------------------------
+
+### 01. Comprobar que la API responde
 # @name salud
 # Esperado: 200
 GET {{baseUrl}}/
 Accept: application/json
 
-### 02. Crear cliente de la cadena
+
+# ------------------------------------------------------------------
+# CLIENTES | Creación, consulta, actualización y validaciones
+# ------------------------------------------------------------------
+
+### 02. Crear cliente
 # @name crearCliente
 # Esperado: 201
 POST {{baseUrl}}/clientes
@@ -38,7 +51,7 @@ Content-Type: application/json
   "direccion": "Calle QA 123"
 }
 
-### 03. Listar clientes con filtro y paginacion
+### 03. Listar clientes con filtro y paginación
 # @name listarClientes
 # Esperado: 200
 GET {{baseUrl}}/clientes?nombre=Ana&ordenar_por=apellido&direccion=asc&pagina=1&limite=10
@@ -50,7 +63,7 @@ Accept: application/json
 GET {{baseUrl}}/clientes/{{clienteId}}
 Accept: application/json
 
-### 05. Actualizar telefono del cliente
+### 05. Actualizar teléfono del cliente
 # @name actualizarCliente
 # Esperado: 200
 PATCH {{baseUrl}}/clientes/{{clienteId}}
@@ -61,7 +74,7 @@ Content-Type: application/json
   "telefono": "987654321"
 }
 
-### 06. Correo duplicado: CLIENT_EMAIL_ALREADY_EXISTS
+### 06. Rechazar correo duplicado — CLIENT_EMAIL_ALREADY_EXISTS
 # @name clienteDuplicado
 # Esperado: 409
 POST {{baseUrl}}/clientes
@@ -76,7 +89,7 @@ Content-Type: application/json
   "direccion": "Calle QA 123"
 }
 
-### 07. Email invalido: VALIDATION_ERROR
+### 07. Rechazar email inválido — VALIDATION_ERROR
 # @name clienteInvalido
 # Esperado: 422
 POST {{baseUrl}}/clientes
@@ -91,7 +104,7 @@ Content-Type: application/json
   "direccion": "Calle QA 123"
 }
 
-### 08. Telefono invalido: VALIDATION_ERROR
+### 08. Rechazar teléfono inválido — VALIDATION_ERROR
 # @name clientePatchInvalido
 # Esperado: 422
 PATCH {{baseUrl}}/clientes/{{clienteId}}
@@ -102,13 +115,18 @@ Content-Type: application/json
   "telefono": "1"
 }
 
-### 09. Cliente inexistente: CLIENT_NOT_FOUND
+### 09. Consultar cliente inexistente — CLIENT_NOT_FOUND
 # @name clienteNoExiste
 # Esperado: 404
 GET {{baseUrl}}/clientes/{{idInexistente}}
 Accept: application/json
 
-### 10. Crear vehiculo asociado al cliente
+
+# ------------------------------------------------------------------
+# VEHÍCULOS | Creación, consulta, actualización y validaciones
+# ------------------------------------------------------------------
+
+### 10. Crear vehículo del cliente
 # @name crearVehiculo
 # Esperado: 201
 POST {{baseUrl}}/vehiculos/
@@ -124,13 +142,13 @@ Content-Type: application/json
   "cliente_id": {{clienteId}}
 }
 
-### 11. Listar vehiculos
+### 11. Listar vehículos
 # @name listarVehiculos
 # Esperado: 200
 GET {{baseUrl}}/vehiculos/
 Accept: application/json
 
-### 12. Consultar vehiculo creado
+### 12. Consultar vehículo creado
 # @name obtenerVehiculo
 # Esperado: 200
 GET {{baseUrl}}/vehiculos/{{vehiculoId}}
@@ -147,7 +165,7 @@ Content-Type: application/json
   "kilometraje": 120001
 }
 
-### 14. Patente duplicada: VEHICLE_LICENSE_PLATE_ALREADY_EXISTS
+### 14. Rechazar patente duplicada — VEHICLE_LICENSE_PLATE_ALREADY_EXISTS
 # @name vehiculoDuplicado
 # Esperado: 409
 POST {{baseUrl}}/vehiculos/
@@ -163,7 +181,7 @@ Content-Type: application/json
   "cliente_id": {{clienteId}}
 }
 
-### 15. Cliente inexistente: CLIENT_NOT_FOUND
+### 15. Rechazar cliente inexistente — CLIENT_NOT_FOUND
 # @name vehiculoSinCliente
 # Esperado: 404
 POST {{baseUrl}}/vehiculos/
@@ -179,7 +197,7 @@ Content-Type: application/json
   "cliente_id": {{idInexistente}}
 }
 
-### 16. Kilometraje negativo: VALIDATION_ERROR
+### 16. Rechazar kilometraje negativo — VALIDATION_ERROR
 # @name vehiculoInvalido
 # Esperado: 422
 POST {{baseUrl}}/vehiculos/
@@ -195,7 +213,7 @@ Content-Type: application/json
   "cliente_id": {{clienteId}}
 }
 
-### 17. Patente corta: VALIDATION_ERROR
+### 17. Rechazar patente corta — VALIDATION_ERROR
 # @name vehiculoPatchInvalido
 # Esperado: 422
 PATCH {{baseUrl}}/vehiculos/{{vehiculoId}}
@@ -206,19 +224,24 @@ Content-Type: application/json
   "patente": "ABC"
 }
 
-### 18. Vehiculo inexistente: VEHICLE_NOT_FOUND
+### 18. Consultar vehículo inexistente — VEHICLE_NOT_FOUND
 # @name vehiculoNoExiste
 # Esperado: 404
 GET {{baseUrl}}/vehiculos/{{idInexistente}}
 Accept: application/json
 
-### 19. Bloquear borrado del cliente: CLIENT_HAS_VEHICLES
+### 19. Impedir eliminar cliente con vehículos — CLIENT_HAS_VEHICLES
 # @name clienteConVehiculo
 # Esperado: 409
 DELETE {{baseUrl}}/clientes/{{clienteId}}
 Accept: application/json
 
-### 20. Crear orden pendiente asociada al vehiculo
+
+# ------------------------------------------------------------------
+# ÓRDENES DE TRABAJO | Creación, consulta, estados y filtros
+# ------------------------------------------------------------------
+
+### 20. Crear orden de trabajo pendiente
 # @name crearOrden
 # Esperado: 201
 POST {{baseUrl}}/ordenes-trabajo
@@ -233,7 +256,7 @@ Content-Type: application/json
   "kilometraje_ingreso": 120000
 }
 
-### 21. Filtrar, ordenar y paginar ordenes
+### 21. Filtrar, ordenar y paginar órdenes
 # @name listarOrdenes
 # Esperado: 200
 GET {{baseUrl}}/ordenes-trabajo?estado=pendiente&ordenar_por=fecha_ingreso&direccion=desc&pagina=1&limite=10
@@ -245,7 +268,7 @@ Accept: application/json
 GET {{baseUrl}}/ordenes-trabajo/{{ordenId}}
 Accept: application/json
 
-### 23. Pasar orden a en_reparacion
+### 23. Cambiar estado a en_reparacion
 # @name actualizarOrden
 # Esperado: 200
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -256,7 +279,7 @@ Content-Type: application/json
   "estado": "en_reparacion"
 }
 
-### 24. Vehiculo inexistente: VEHICLE_NOT_FOUND
+### 24. Rechazar vehículo inexistente — VEHICLE_NOT_FOUND
 # @name ordenSinVehiculo
 # Esperado: 404
 POST {{baseUrl}}/ordenes-trabajo
@@ -271,7 +294,7 @@ Content-Type: application/json
   "kilometraje_ingreso": 120000
 }
 
-### 25. Kilometraje negativo: VALIDATION_ERROR
+### 25. Rechazar kilometraje negativo — VALIDATION_ERROR
 # @name ordenInvalida
 # Esperado: 422
 POST {{baseUrl}}/ordenes-trabajo
@@ -286,7 +309,7 @@ Content-Type: application/json
   "kilometraje_ingreso": -1
 }
 
-### 26. Estado desconocido: VALIDATION_ERROR
+### 26. Rechazar estado desconocido — VALIDATION_ERROR
 # @name ordenPatchInvalido
 # Esperado: 422
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -297,7 +320,7 @@ Content-Type: application/json
   "estado": "abierta"
 }
 
-### 27. Vehiculo inexistente al actualizar: VEHICLE_NOT_FOUND
+### 27. Rechazar vehículo inexistente al actualizar — VEHICLE_NOT_FOUND
 # @name ordenPatchSinVehiculo
 # Esperado: 404
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -308,13 +331,13 @@ Content-Type: application/json
   "vehiculo_id": {{idInexistente}}
 }
 
-### 28. Orden inexistente: WORK_ORDER_NOT_FOUND
+### 28. Consultar orden inexistente — WORK_ORDER_NOT_FOUND
 # @name ordenNoExiste
 # Esperado: 404
 GET {{baseUrl}}/ordenes-trabajo/{{idInexistente}}
 Accept: application/json
 
-### 29. Actualizar orden inexistente: WORK_ORDER_NOT_FOUND
+### 29. Rechazar actualización de orden inexistente — WORK_ORDER_NOT_FOUND
 # @name ordenPatchNoExiste
 # Esperado: 404
 PATCH {{baseUrl}}/ordenes-trabajo/{{idInexistente}}
@@ -325,7 +348,12 @@ Content-Type: application/json
   "estado": "finalizada"
 }
 
-### 30. Crear reparacion asociada a la orden
+
+# ------------------------------------------------------------------
+# REPARACIONES | Creación, consulta, actualización y validaciones
+# ------------------------------------------------------------------
+
+### 30. Crear reparación para la orden
 # @name crearReparacion
 # Esperado: 201
 POST {{baseUrl}}/reparaciones/
@@ -346,13 +374,13 @@ Content-Type: application/json
 GET {{baseUrl}}/reparaciones/
 Accept: application/json
 
-### 32. Consultar reparacion creada
+### 32. Consultar reparación creada
 # @name obtenerReparacion
 # Esperado: 200
 GET {{baseUrl}}/reparaciones/{{reparacionId}}
 Accept: application/json
 
-### 33. Actualizar costo
+### 33. Actualizar costo de la reparación
 # @name actualizarReparacion
 # Esperado: 200
 PATCH {{baseUrl}}/reparaciones/{{reparacionId}}
@@ -363,7 +391,7 @@ Content-Type: application/json
   "costo": 50000
 }
 
-### 34. Orden inexistente: WORK_ORDER_NOT_FOUND
+### 34. Rechazar orden inexistente — WORK_ORDER_NOT_FOUND
 # @name reparacionSinOrden
 # Esperado: 404
 POST {{baseUrl}}/reparaciones/
@@ -378,7 +406,7 @@ Content-Type: application/json
   "fecha": "2024-01-11"
 }
 
-### 35. Costo negativo: VALIDATION_ERROR
+### 35. Rechazar costo negativo — VALIDATION_ERROR
 # @name reparacionInvalida
 # Esperado: 422
 POST {{baseUrl}}/reparaciones/
@@ -393,7 +421,7 @@ Content-Type: application/json
   "fecha": "2024-01-11"
 }
 
-### 36. Tipo desconocido: VALIDATION_ERROR
+### 36. Rechazar tipo desconocido — VALIDATION_ERROR
 # @name reparacionPatchInvalido
 # Esperado: 422
 PATCH {{baseUrl}}/reparaciones/{{reparacionId}}
@@ -404,7 +432,7 @@ Content-Type: application/json
   "tipo": "otro"
 }
 
-### 37. Fecha futura: INVALID_REPAIR_DATE
+### 37. Rechazar fecha futura al crear — INVALID_REPAIR_DATE
 # @name reparacionFechaFutura
 # Esperado: 400
 POST {{baseUrl}}/reparaciones/
@@ -419,7 +447,7 @@ Content-Type: application/json
   "fecha": "9999-12-31"
 }
 
-### 38. Fecha futura al actualizar: INVALID_REPAIR_DATE
+### 38. Rechazar fecha futura al actualizar — INVALID_REPAIR_DATE
 # @name reparacionPatchFechaFutura
 # Esperado: 400
 PATCH {{baseUrl}}/reparaciones/{{reparacionId}}
@@ -430,31 +458,36 @@ Content-Type: application/json
   "fecha": "9999-12-31"
 }
 
-### 39. Reparacion inexistente: REPAIR_NOT_FOUND
+### 39. Consultar reparación inexistente — REPAIR_NOT_FOUND
 # @name reparacionNoExiste
 # Esperado: 404
 GET {{baseUrl}}/reparaciones/{{idInexistente}}
 Accept: application/json
 
-### 40. Bloquear borrado de vehiculo con orden: esperado 409 JSON; caso de regresion
+
+# ------------------------------------------------------------------
+# REGLAS DE NEGOCIO | Integridad, estados y entradas inválidas
+# ------------------------------------------------------------------
+
+### 40. Impedir eliminar vehículo con órdenes — VEHICLE_HAS_WORK_ORDERS
 # @name vehiculoConOrden
 # Esperado: 409
 DELETE {{baseUrl}}/vehiculos/{{vehiculoId}}
 Accept: application/json
 
-### 41. El vehiculo debe seguir existiendo tras el rechazo
+### 41. Verificar que se conserva el vehículo
 # @name verificarVehiculoConservado
 # Esperado: 200
 GET {{baseUrl}}/vehiculos/{{vehiculoId}}
 Accept: application/json
 
-### 42. La orden debe seguir existiendo tras el rechazo
+### 42. Verificar que se conserva la orden
 # @name verificarOrdenConservada
 # Esperado: 200
 GET {{baseUrl}}/ordenes-trabajo/{{ordenId}}
 Accept: application/json
 
-### 43. Finalizar orden
+### 43. Finalizar la orden
 # @name finalizarOrden
 # Esperado: 200
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -465,7 +498,7 @@ Content-Type: application/json
   "estado": "finalizada"
 }
 
-### 44. Reapertura prohibida: INVALID_WORK_ORDER_STATE
+### 44. Impedir reabrir orden a pendiente — INVALID_WORK_ORDER_STATE
 # @name reabrirOrdenPendiente
 # Esperado: 409
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -476,7 +509,7 @@ Content-Type: application/json
   "estado": "pendiente"
 }
 
-### 45. Reapertura prohibida: INVALID_WORK_ORDER_STATE
+### 45. Impedir reabrir orden a en_reparacion — INVALID_WORK_ORDER_STATE
 # @name reabrirOrdenReparacion
 # Esperado: 409
 PATCH {{baseUrl}}/ordenes-trabajo/{{ordenId}}
@@ -487,31 +520,36 @@ Content-Type: application/json
   "estado": "en_reparacion"
 }
 
-### 46. La orden debe conservar estado finalizada
+### 46. Verificar que la orden sigue finalizada
 # @name verificarOrdenFinalizada
 # Esperado: 200
 GET {{baseUrl}}/ordenes-trabajo/{{ordenId}}
 Accept: application/json
 
-### 47. ID no numerico: VALIDATION_ERROR
+### 47. Rechazar identificador no numérico — VALIDATION_ERROR
 # @name idInvalido
 # Esperado: 422
 GET {{baseUrl}}/ordenes-trabajo/no-es-un-id
 Accept: application/json
 
-### 48. Pagina cero: VALIDATION_ERROR
+### 48. Rechazar página cero — VALIDATION_ERROR
 # @name paginaInvalida
 # Esperado: 422
 GET {{baseUrl}}/clientes?pagina=0
 Accept: application/json
 
-### 49. Ordenamiento desconocido: VALIDATION_ERROR
+### 49. Rechazar ordenamiento desconocido — VALIDATION_ERROR
 # @name ordenamientoInvalido
 # Esperado: 422
 GET {{baseUrl}}/ordenes-trabajo?ordenar_por=inexistente
 Accept: application/json
 
-### 50. Crear cliente independiente para DELETE exitoso
+
+# ------------------------------------------------------------------
+# ELIMINACIÓN | Comprobar 204 y 404 sin alterar la cadena principal
+# ------------------------------------------------------------------
+
+### 50. Crear cliente independiente para probar DELETE
 # @name crearClienteBorrable
 # Esperado: 201
 POST {{baseUrl}}/clientes
@@ -526,25 +564,25 @@ Content-Type: application/json
   "direccion": "Calle QA 123"
 }
 
-### 51. DELETE existente 204, sin cuerpo
+### 51. Eliminar cliente existente (sin cuerpo)
 # @name borrarCliente
 # Esperado: 204
 DELETE {{baseUrl}}/clientes/{{clienteBorrableId}}
 Accept: application/json
 
-### 52. Consultar cliente eliminado: CLIENT_NOT_FOUND
+### 52. Consultar cliente eliminado — CLIENT_NOT_FOUND
 # @name consultarClienteBorrado
 # Esperado: 404
 GET {{baseUrl}}/clientes/{{clienteBorrableId}}
 Accept: application/json
 
-### 53. DELETE inexistente: CLIENT_NOT_FOUND
+### 53. Repetir DELETE de cliente inexistente — CLIENT_NOT_FOUND
 # @name borrarClienteOtraVez
 # Esperado: 404
 DELETE {{baseUrl}}/clientes/{{clienteBorrableId}}
 Accept: application/json
 
-### 54. Crear vehiculo sin ordenes para DELETE exitoso
+### 54. Crear vehículo sin órdenes para probar DELETE
 # @name crearVehiculoBorrable
 # Esperado: 201
 POST {{baseUrl}}/vehiculos/
@@ -560,37 +598,37 @@ Content-Type: application/json
   "cliente_id": {{clienteId}}
 }
 
-### 55. DELETE existente 204, sin cuerpo
+### 55. Eliminar vehículo existente (sin cuerpo)
 # @name borrarVehiculo
 # Esperado: 204
 DELETE {{baseUrl}}/vehiculos/{{vehiculoBorrableId}}
 Accept: application/json
 
-### 56. Consultar vehiculo eliminado: VEHICLE_NOT_FOUND
+### 56. Consultar vehículo eliminado — VEHICLE_NOT_FOUND
 # @name consultarVehiculoBorrado
 # Esperado: 404
 GET {{baseUrl}}/vehiculos/{{vehiculoBorrableId}}
 Accept: application/json
 
-### 57. DELETE inexistente: VEHICLE_NOT_FOUND
+### 57. Repetir DELETE de vehículo inexistente — VEHICLE_NOT_FOUND
 # @name borrarVehiculoOtraVez
 # Esperado: 404
 DELETE {{baseUrl}}/vehiculos/{{vehiculoBorrableId}}
 Accept: application/json
 
-### 58. DELETE existente 204, sin cuerpo
+### 58. Eliminar reparación existente (sin cuerpo)
 # @name borrarReparacion
 # Esperado: 204
 DELETE {{baseUrl}}/reparaciones/{{reparacionId}}
 Accept: application/json
 
-### 59. Consultar reparacion eliminada: REPAIR_NOT_FOUND
+### 59. Consultar reparación eliminada — REPAIR_NOT_FOUND
 # @name consultarReparacionBorrada
 # Esperado: 404
 GET {{baseUrl}}/reparaciones/{{reparacionId}}
 Accept: application/json
 
-### 60. DELETE inexistente: REPAIR_NOT_FOUND
+### 60. Repetir DELETE de reparación inexistente — REPAIR_NOT_FOUND
 # @name borrarReparacionOtraVez
 # Esperado: 404
 DELETE {{baseUrl}}/reparaciones/{{reparacionId}}
